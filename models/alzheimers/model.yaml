@@ -1,0 +1,19 @@
+name: "Alzheimer's Disease"
+disease_id: "MONDO:0004975"
+description: >
+  Alzheimer's Disease is a progressive neurodegenerative disorder characterized by
+  cognitive decline, memory loss, and behavioral changes involving the accumulation
+  of amyloid-beta plaques and neurofibrillary tangles.
+modules:
+  - abeta_production.yaml
+shared_compartments:
+  - name: BrainISF
+    volume_value: 0.25
+    volume_units: L
+  - name: CSF
+    volume_value: 0.14
+    volume_units: L
+  - name: Plasma
+    volume_value: 3.0
+    volume_units: L
+shared_parameters: []

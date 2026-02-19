@@ -1,0 +1,116 @@
+name: abeta_production
+description: >
+  Amyloid-beta 42 production and clearance across brain ISF, CSF, and plasma
+  compartments. AB42 is produced in brain ISF by APP cleavage, cleared locally
+  by degradation, and transported to CSF and plasma.
+mechanism: "Amyloid-Beta Plaque Formation"
+
+compartments:
+  - name: BrainISF
+    volume_value: 0.25
+    volume_units: L
+  - name: CSF
+    volume_value: 0.14
+    volume_units: L
+  - name: Plasma
+    volume_value: 3.0
+    volume_units: L
+
+species:
+  - name: AB42_BrainISF
+    initial_amount: 1.0e-9
+    units: mol
+  - name: AB42_CSF
+    initial_amount: 0.5e-9
+    units: mol
+  - name: AB42_Plasma
+    initial_amount: 0.1e-9
+    units: mol
+
+reactions:
+  - name: AB42_production
+    reactants: []
+    products:
+      - AB42_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_AB42_prod
+    notes: Zero-order production of AB42 in brain ISF from APP cleavage
+
+  - name: AB42_degradation_BrainISF
+    reactants:
+      - AB42_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_AB42_deg_ISF
+    notes: First-order degradation of AB42 in brain ISF
+
+  - name: AB42_ISF_to_CSF
+    reactants:
+      - AB42_BrainISF
+    products:
+      - AB42_CSF
+    rate_type: UDF
+    rate_parameters:
+      - k_AB42_ISF_CSF
+    notes: Transport of AB42 from brain ISF to CSF via bulk flow
+
+  - name: AB42_CSF_to_Plasma
+    reactants:
+      - AB42_CSF
+    products:
+      - AB42_Plasma
+    rate_type: UDF
+    rate_parameters:
+      - k_AB42_CSF_Plasma
+    notes: Transport of AB42 from CSF to plasma
+
+  - name: AB42_degradation_Plasma
+    reactants:
+      - AB42_Plasma
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_AB42_deg_Plasma
+    notes: First-order degradation of AB42 in plasma
+
+parameters:
+  - name: k_AB42_prod
+    value: 5.0e-12
+    units: mol/hr
+    confidence: estimated
+    source: "Elbert_Esguerra model"
+    notes: Zero-order production rate of AB42
+
+  - name: k_AB42_deg_ISF
+    value: 0.069
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert_Esguerra model (t1/2 ~ 10 hr)"
+    notes: First-order degradation rate in brain ISF
+
+  - name: k_AB42_ISF_CSF
+    value: 0.035
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert_Esguerra model"
+    notes: Transport rate from ISF to CSF
+
+  - name: k_AB42_CSF_Plasma
+    value: 0.025
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert_Esguerra model"
+    notes: Transport rate from CSF to plasma
+
+  - name: k_AB42_deg_Plasma
+    value: 0.14
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert_Esguerra model (t1/2 ~ 5 hr)"
+    notes: First-order degradation rate in plasma
+
+evidence:
+  - pmid: "PMID:21456963"
+    snippet: "physiologic generation of the neurotoxic Aβ peptide from sequential amyloid precursor protein (APP) proteolysis"
