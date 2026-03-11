@@ -29,6 +29,9 @@ uv.lock
 .coverage
 htmlcov/
 
+# Claude Code
+.mcp.json
+
 # Generated output
 *.ant
 *.sbml
