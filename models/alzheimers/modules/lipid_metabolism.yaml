@@ -1,0 +1,598 @@
+name: lipid_metabolism
+description: >
+  Tier 3 lipid metabolism and ApoE lipoprotein module for Alzheimer's disease ODE models.
+  Captures astrocyte-centered cholesterol synthesis and efflux, CYP46A1-mediated 24-OHC
+  production, 27-OHC input, LXR/SREBP2 feedback regulation, ApoE lipidation, and HDL-like
+  particle assembly in brain interstitial fluid.
+mechanism: "Lipid Metabolism and ApoE Axis"
+notes: "Tier: 3. Compartments constrained to Astrocyte and BrainISF."
+
+compartments:
+  - name: Astrocyte
+    volume_parameter: V_Astrocyte
+    volume_value: 0.2
+    volume_units: L
+    notes: "Lumped astrocyte compartment for intracellular cholesterol handling and transporter expression."
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.28
+    volume_units: L
+    notes: "Brain interstitial fluid pool for oxysterols and ApoE-containing lipoproteins."
+
+species:
+  - name: CHOLESTEROL_Astrocyte
+    initial_amount: 6.0e-6
+    units: mol
+  - name: CHOLESTEROL_BrainISF
+    initial_amount: 1.5e-7
+    units: mol
+  - name: 24OHC_BrainISF
+    initial_amount: 8.0e-9
+    units: mol
+  - name: 27OHC_BrainISF
+    initial_amount: 6.0e-10
+    units: mol
+  - name: APOE_free_Astrocyte
+    initial_amount: 4.0e-10
+    units: mol
+  - name: APOE_free_BrainISF
+    initial_amount: 1.0e-10
+    units: mol
+  - name: APOE_lipidated_BrainISF
+    initial_amount: 8.0e-10
+    units: mol
+  - name: HDL_brain_BrainISF
+    initial_amount: 4.0e-10
+    units: mol
+  - name: ABCA1_Astrocyte
+    initial_amount: 1.0e-9
+    units: mol
+  - name: ABCG1_Astrocyte
+    initial_amount: 8.0e-10
+    units: mol
+  - name: LXR_Astrocyte
+    initial_amount: 9.0e-10
+    units: mol
+  - name: LXR_active_Astrocyte
+    initial_amount: 1.0e-10
+    units: mol
+  - name: SREBP2_Astrocyte
+    initial_amount: 8.0e-10
+    units: mol
+  - name: CYP46A1_Astrocyte
+    initial_amount: 6.0e-10
+    units: mol
+
+reactions:
+  - name: CholesterolSynthesis_Basal_Astrocyte
+    reactants: []
+    products:
+      - CHOLESTEROL_Astrocyte
+    rate_type: MA
+    rate_parameters:
+      - k_chol_synth_basal
+
+  - name: CholesterolSynthesis_SREBP2_Astrocyte
+    reactants: []
+    products:
+      - CHOLESTEROL_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_chol_synth_SREBP2 * (SREBP2_Astrocyte / SREBP2_ref_Astrocyte)"
+    rate_parameters:
+      - k_chol_synth_SREBP2
+      - SREBP2_ref_Astrocyte
+
+  - name: CholesterolTurnover_Astrocyte
+    reactants:
+      - CHOLESTEROL_Astrocyte
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_chol_turnover_ast
+
+  - name: CholesterolEfflux_ABCA1_Astrocyte_to_BrainISF
+    reactants:
+      - CHOLESTEROL_Astrocyte
+    products:
+      - CHOLESTEROL_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_chol_efflux_ABCA1 * (ABCA1_Astrocyte / ABCA1_ref_Astrocyte) * (CHOLESTEROL_Astrocyte / V_Astrocyte)"
+    rate_parameters:
+      - k_chol_efflux_ABCA1
+      - ABCA1_ref_Astrocyte
+      - V_Astrocyte
+
+  - name: CholesterolUptake_Astrocyte_from_BrainISF
+    reactants:
+      - CHOLESTEROL_BrainISF
+    products:
+      - CHOLESTEROL_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_chol_uptake_ast * (HDL_brain_BrainISF / HDL_ref_BrainISF) * (CHOLESTEROL_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_chol_uptake_ast
+      - HDL_ref_BrainISF
+      - V_BrainISF
+
+  - name: CYP46A1Synthesis_Basal
+    reactants: []
+    products:
+      - CYP46A1_Astrocyte
+    rate_type: MA
+    rate_parameters:
+      - k_CYP46A1_syn
+
+  - name: CYP46A1Turnover
+    reactants:
+      - CYP46A1_Astrocyte
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_CYP46A1_deg
+
+  - name: Oxysterol24OHC_Formation
+    reactants:
+      - CHOLESTEROL_Astrocyte
+    products:
+      - 24OHC_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_CYP46A1_24OHC * (CYP46A1_Astrocyte / CYP46A1_ref_Astrocyte) * (CHOLESTEROL_Astrocyte / V_Astrocyte)) / (Km_CYP46A1_24OHC + (CHOLESTEROL_Astrocyte / V_Astrocyte))"
+    rate_parameters:
+      - Vmax_CYP46A1_24OHC
+      - Km_CYP46A1_24OHC
+      - CYP46A1_ref_Astrocyte
+      - V_Astrocyte
+
+  - name: Oxysterol24OHC_Clearance
+    reactants:
+      - 24OHC_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_24OHC_clear
+
+  - name: Oxysterol27OHC_Ingress
+    reactants: []
+    products:
+      - 27OHC_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_27OHC_in
+
+  - name: Oxysterol27OHC_Clearance
+    reactants:
+      - 27OHC_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_27OHC_clear
+
+  - name: LXRActivation_by_Oxysterols
+    reactants:
+      - LXR_Astrocyte
+    products:
+      - LXR_active_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_LXR_activate * LXR_Astrocyte * (((24OHC_BrainISF / V_BrainISF) + (27OHC_BrainISF / V_BrainISF))^n_LXR / (Kd_LXR^n_LXR + ((24OHC_BrainISF / V_BrainISF) + (27OHC_BrainISF / V_BrainISF))^n_LXR))"
+    rate_parameters:
+      - k_LXR_activate
+      - Kd_LXR
+      - n_LXR
+      - V_BrainISF
+
+  - name: LXRDeactivation
+    reactants:
+      - LXR_active_Astrocyte
+    products:
+      - LXR_Astrocyte
+    rate_type: MA
+    rate_parameters:
+      - k_LXR_deactivate
+
+  - name: ABCA1Synthesis_Basal
+    reactants: []
+    products:
+      - ABCA1_Astrocyte
+    rate_type: MA
+    rate_parameters:
+      - k_ABCA1_basal
+
+  - name: ABCA1Synthesis_by_LXR
+    reactants: []
+    products:
+      - ABCA1_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ABCA1_LXR * (LXR_active_Astrocyte / LXR_active_ref_Astrocyte)"
+    rate_parameters:
+      - k_ABCA1_LXR
+      - LXR_active_ref_Astrocyte
+
+  - name: ABCA1Turnover
+    reactants:
+      - ABCA1_Astrocyte
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_ABCA1_deg
+
+  - name: ABCG1Synthesis_Basal
+    reactants: []
+    products:
+      - ABCG1_Astrocyte
+    rate_type: MA
+    rate_parameters:
+      - k_ABCG1_basal
+
+  - name: ABCG1Synthesis_by_LXR
+    reactants: []
+    products:
+      - ABCG1_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ABCG1_LXR * (LXR_active_Astrocyte / LXR_active_ref_Astrocyte)"
+    rate_parameters:
+      - k_ABCG1_LXR
+      - LXR_active_ref_Astrocyte
+
+  - name: ABCG1Turnover
+    reactants:
+      - ABCG1_Astrocyte
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_ABCG1_deg
+
+  - name: SREBP2Activation_LowCholesterol
+    reactants: []
+    products:
+      - SREBP2_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_SREBP2_activate * (K_SREBP2_chol / (K_SREBP2_chol + (CHOLESTEROL_Astrocyte / V_Astrocyte)))"
+    rate_parameters:
+      - k_SREBP2_activate
+      - K_SREBP2_chol
+      - V_Astrocyte
+
+  - name: SREBP2Turnover
+    reactants:
+      - SREBP2_Astrocyte
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_SREBP2_deg
+
+  - name: ApoEProduction_Astrocyte
+    reactants: []
+    products:
+      - APOE_free_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_APOE_prod * (1 + beta_APOE_prod_LXR * (LXR_active_Astrocyte / LXR_active_ref_Astrocyte))"
+    rate_parameters:
+      - k_APOE_prod
+      - beta_APOE_prod_LXR
+      - LXR_active_ref_Astrocyte
+
+  - name: ApoESecretion_to_BrainISF
+    reactants:
+      - APOE_free_Astrocyte
+    products:
+      - APOE_free_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_APOE_secrete
+
+  - name: ApoELipidation_ABCA1_Dependent
+    reactants:
+      - APOE_free_BrainISF
+      - CHOLESTEROL_BrainISF
+    products:
+      - APOE_lipidated_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_APOE_lipidation * (ABCA1_Astrocyte / ABCA1_ref_Astrocyte) * (APOE_free_BrainISF / V_BrainISF) * (CHOLESTEROL_BrainISF / (Km_APOE_lipidation_chol + CHOLESTEROL_BrainISF))"
+    rate_parameters:
+      - k_APOE_lipidation
+      - ABCA1_ref_Astrocyte
+      - Km_APOE_lipidation_chol
+      - V_BrainISF
+
+  - name: HDLAssembly_ABCG1_Dependent
+    reactants:
+      - APOE_lipidated_BrainISF
+      - CHOLESTEROL_BrainISF
+    products:
+      - HDL_brain_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_HDL_assembly * (ABCG1_Astrocyte / ABCG1_ref_Astrocyte) * (APOE_lipidated_BrainISF / V_BrainISF) * (CHOLESTEROL_BrainISF / (Km_HDL_assembly_chol + CHOLESTEROL_BrainISF))"
+    rate_parameters:
+      - k_HDL_assembly
+      - ABCG1_ref_Astrocyte
+      - Km_HDL_assembly_chol
+      - V_BrainISF
+
+  - name: HDLTurnover_BrainISF
+    reactants:
+      - HDL_brain_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_HDL_turnover
+
+  - name: ApoEFreeClearance_BrainISF
+    reactants:
+      - APOE_free_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_APOE_free_clear
+
+  - name: ApoELipidatedClearance_BrainISF
+    reactants:
+      - APOE_lipidated_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_APOE_lipidated_clear
+
+parameters:
+  - name: k_chol_synth_basal
+    value: 2.0e-8
+    units: mol/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 3.3"
+
+  - name: k_chol_synth_SREBP2
+    value: 1.0e-8
+    units: mol/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 3.2"
+
+  - name: SREBP2_ref_Astrocyte
+    value: 8.0e-10
+    units: mol
+    confidence: assumed
+    source: "module initialization"
+
+  - name: V_Astrocyte
+    value: 0.2
+    units: L
+    confidence: assumed
+    source: "compartment definition"
+
+  - name: V_BrainISF
+    value: 0.28
+    units: L
+    confidence: assumed
+    source: "compartment definition"
+
+  - name: k_chol_turnover_ast
+    value: 0.01
+    units: 1/hr
+    confidence: estimated
+    source: "homeostatic turnover assumption"
+
+  - name: k_chol_efflux_ABCA1
+    value: 0.004
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 3.3 and 7.3"
+
+  - name: ABCA1_ref_Astrocyte
+    value: 1.0e-9
+    units: mol
+    confidence: assumed
+    source: "module initialization"
+
+  - name: k_chol_uptake_ast
+    value: 0.012
+    units: 1/hr
+    confidence: assumed
+    source: "astrocyte recycling closure"
+
+  - name: HDL_ref_BrainISF
+    value: 4.0e-10
+    units: mol
+    confidence: assumed
+    source: "module initialization"
+
+  - name: k_CYP46A1_syn
+    value: 2.5e-11
+    units: mol/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 3.2"
+
+  - name: k_CYP46A1_deg
+    value: 0.03
+    units: 1/hr
+    confidence: estimated
+    source: "enzyme turnover placeholder"
+
+  - name: Vmax_CYP46A1_24OHC
+    value: 6.0e-8
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 3.3"
+
+  - name: Km_CYP46A1_24OHC
+    value: 2.0e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_lipid_apoe section 3.3"
+
+  - name: CYP46A1_ref_Astrocyte
+    value: 6.0e-10
+    units: mol
+    confidence: assumed
+    source: "module initialization"
+
+  - name: k_24OHC_clear
+    value: 0.18
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 3.3"
+
+  - name: k_27OHC_in
+    value: 2.0e-10
+    units: mol/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 3.2"
+
+  - name: k_27OHC_clear
+    value: 0.05
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 3.3"
+
+  - name: k_LXR_activate
+    value: 0.06
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 7.2"
+
+  - name: Kd_LXR
+    value: 5.0e-6
+    units: mol/L
+    confidence: estimated
+    source: "strategy_lipid_apoe section 7.3"
+
+  - name: n_LXR
+    value: 2.0
+    units: dimensionless
+    confidence: assumed
+    source: "strategy_lipid_apoe section 7.3"
+
+  - name: k_LXR_deactivate
+    value: 0.08
+    units: 1/hr
+    confidence: assumed
+    source: "receptor-state relaxation placeholder"
+
+  - name: k_ABCA1_basal
+    value: 1.2e-11
+    units: mol/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 7.3"
+
+  - name: k_ABCA1_LXR
+    value: 2.0e-11
+    units: mol/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 7.2"
+
+  - name: LXR_active_ref_Astrocyte
+    value: 1.0e-10
+    units: mol
+    confidence: assumed
+    source: "module initialization"
+
+  - name: k_ABCA1_deg
+    value: 0.04
+    units: 1/hr
+    confidence: estimated
+    source: "transporter turnover assumption"
+
+  - name: k_ABCG1_basal
+    value: 8.0e-12
+    units: mol/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 7.2"
+
+  - name: k_ABCG1_LXR
+    value: 1.6e-11
+    units: mol/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 7.2"
+
+  - name: k_ABCG1_deg
+    value: 0.04
+    units: 1/hr
+    confidence: estimated
+    source: "transporter turnover assumption"
+
+  - name: k_SREBP2_activate
+    value: 3.0e-11
+    units: mol/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 3.2"
+
+  - name: K_SREBP2_chol
+    value: 2.0e-5
+    units: mol/L
+    confidence: assumed
+    source: "cholesterol-sensing threshold placeholder"
+
+  - name: k_SREBP2_deg
+    value: 0.03
+    units: 1/hr
+    confidence: estimated
+    source: "transcription factor turnover assumption"
+
+  - name: k_APOE_prod
+    value: 5.0e-11
+    units: mol/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 2.2 and 6.2"
+
+  - name: beta_APOE_prod_LXR
+    value: 0.6
+    units: dimensionless
+    confidence: assumed
+    source: "LXR-mediated ApoE induction abstraction"
+
+  - name: k_APOE_secrete
+    value: 0.12
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 6.2"
+
+  - name: k_APOE_lipidation
+    value: 0.05
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 2.2 and 6.2"
+
+  - name: Km_APOE_lipidation_chol
+    value: 1.106681919700321e-8
+    units: mol
+    confidence: estimated
+    source: "data/parameters/module/lipid_metabolism.json geometric mean (11.07 nM)"
+
+  - name: k_HDL_assembly
+    value: 0.03
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 6.1 and 7.2"
+
+  - name: ABCG1_ref_Astrocyte
+    value: 8.0e-10
+    units: mol
+    confidence: assumed
+    source: "module initialization"
+
+  - name: Km_HDL_assembly_chol
+    value: 2.0e-8
+    units: mol
+    confidence: assumed
+    source: "HDL assembly saturation placeholder"
+
+  - name: k_HDL_turnover
+    value: 0.03
+    units: 1/hr
+    confidence: estimated
+    source: "lipoprotein turnover placeholder"
+
+  - name: k_APOE_free_clear
+    value: 0.08
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 6.3"
+
+  - name: k_APOE_lipidated_clear
+    value: 0.04
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe section 6.3"
+
+evidence:
+  - source: "plan/strategy_lipid_apoe.md"
+    supports: "Mechanistic structure for cholesterol handling, oxysterols, ABCA1/ABCG1-LXR regulation, ApoE lipidation, and HDL-like assembly"
+  - source: "data/parameters/module/lipid_metabolism.json"
+    supports: "ApoE-related affinity-scale concentration used for Km placeholder"

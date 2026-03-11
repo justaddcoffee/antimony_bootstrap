@@ -1,0 +1,779 @@
+name: amyloid_transport
+description: >
+  Tier 1 vascular and BBB amyloid transport module for Alzheimer's disease ODE models.
+  Captures AB40/AB42 movement across BrainISF, BBB, CSF, and Plasma with LRP1 efflux,
+  RAGE influx, P-gp efflux support, CSF bulk flow, and peripheral plasma clearance.
+mechanism: "Vascular and Blood-Brain Barrier Transport"
+notes: "Tier: 1 (core). Naming follows Elbert convention {species}_{compartment}."
+
+compartments:
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.25
+    volume_units: L
+    notes: "Tier-1 simplified ISF volume; Elbert includes smaller effective ISF subvolume in detailed models."
+  - name: CSF
+    volume_parameter: V_CSF
+    volume_value: 0.14
+    volume_units: L
+    notes: "CSF pool for convective transport toward plasma."
+  - name: Plasma
+    volume_parameter: V_Plasma
+    volume_value: 3.0
+    volume_units: L
+    notes: "Systemic plasma compartment."
+  - name: BBB
+    volume_parameter: V_BBB
+    volume_value: 0.002
+    volume_units: L
+    notes: "Conceptual endothelial transport compartment (strategy guidance: ~0.002 L)."
+
+species:
+  - name: AB40_BrainISF
+    initial_amount: 1.0e-9
+    units: mol
+  - name: AB40_CSF
+    initial_amount: 0.5e-9
+    units: mol
+  - name: AB40_Plasma
+    initial_amount: 0.2e-9
+    units: mol
+  - name: AB40_BBB
+    initial_amount: 0.0
+    units: mol
+  - name: AB42_BrainISF
+    initial_amount: 1.0e-9
+    units: mol
+  - name: AB42_CSF
+    initial_amount: 0.5e-9
+    units: mol
+  - name: AB42_Plasma
+    initial_amount: 0.1e-9
+    units: mol
+  - name: AB42_BBB
+    initial_amount: 0.0
+    units: mol
+  - name: LRP1_BrainISF
+    initial_amount: 0.1e-9
+    units: mol
+  - name: LRP1_CSF
+    initial_amount: 0.05e-9
+    units: mol
+  - name: LRP1_Plasma
+    initial_amount: 0.2e-9
+    units: mol
+  - name: LRP1_BBB
+    initial_amount: 1.0e-9
+    units: mol
+  - name: RAGE_BrainISF
+    initial_amount: 0.05e-9
+    units: mol
+  - name: RAGE_CSF
+    initial_amount: 0.02e-9
+    units: mol
+  - name: RAGE_Plasma
+    initial_amount: 0.1e-9
+    units: mol
+  - name: RAGE_BBB
+    initial_amount: 0.6e-9
+    units: mol
+  - name: P_gp_BrainISF
+    initial_amount: 0.0
+    units: mol
+  - name: P_gp_CSF
+    initial_amount: 0.0
+    units: mol
+  - name: P_gp_Plasma
+    initial_amount: 0.05e-9
+    units: mol
+  - name: P_gp_BBB
+    initial_amount: 0.8e-9
+    units: mol
+  - name: sLRP1_BrainISF
+    initial_amount: 0.05e-9
+    units: mol
+  - name: sLRP1_CSF
+    initial_amount: 0.05e-9
+    units: mol
+  - name: sLRP1_Plasma
+    initial_amount: 4.0e-9
+    units: mol
+  - name: sLRP1_BBB
+    initial_amount: 0.05e-9
+    units: mol
+
+reactions:
+  - name: LRP1Efflux_AB40_BrainISF_to_BBB
+    reactants:
+      - AB40_BrainISF
+    products:
+      - AB40_BBB
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_LRP1_AB40 * (LRP1_BBB / LRP1_ref_BBB) * (AB40_BrainISF / V_BrainISF)) / (Km_LRP1_AB40 + (AB40_BrainISF / V_BrainISF))"
+    rate_parameters:
+      - Vmax_LRP1_AB40
+      - Km_LRP1_AB40
+      - LRP1_ref_BBB
+      - V_BrainISF
+    evidence:
+      - pmid: "15313568"
+        source: "Deane et al. 2004"
+        supports: "LRP1-mediated AB efflux from brain-facing side of BBB"
+    rate_law_evidence:
+      - source: "Strategy vascular BBB section 3"
+        supports: "Michaelis-Menten form for LRP1 transport"
+
+  - name: LRP1Release_AB40_BBB_to_Plasma
+    reactants:
+      - AB40_BBB
+    products:
+      - AB40_Plasma
+    rate_type: UDF
+    rate_parameters:
+      - k_LRP1_release_AB40
+    evidence:
+      - source: "Mechanistic transcytosis abstraction"
+        supports: "Efflux completion from BBB transit pool to plasma"
+    rate_law_evidence:
+      - source: "Tier-1 simplification"
+        supports: "First-order release from BBB transit pool"
+
+  - name: RAGEInflux_AB40_Plasma_to_BBB
+    reactants:
+      - AB40_Plasma
+    products:
+      - AB40_BBB
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_RAGE_AB40 * (RAGE_BBB / RAGE_ref_BBB) * (AB40_Plasma / V_Plasma)) / (Km_RAGE_AB40 + (AB40_Plasma / V_Plasma))"
+    rate_parameters:
+      - Vmax_RAGE_AB40
+      - Km_RAGE_AB40
+      - RAGE_ref_BBB
+      - V_Plasma
+    evidence:
+      - pmid: "12805289"
+      - source: "Deane et al. 2003"
+        supports: "RAGE-mediated AB influx from blood to brain"
+    rate_law_evidence:
+      - source: "Strategy vascular BBB section 3"
+        supports: "Michaelis-Menten form for RAGE transport"
+
+  - name: RAGERelease_AB40_BBB_to_BrainISF
+    reactants:
+      - AB40_BBB
+    products:
+      - AB40_BrainISF
+    rate_type: UDF
+    rate_parameters:
+      - k_RAGE_release_AB40
+    evidence:
+      - source: "Mechanistic transcytosis abstraction"
+        supports: "Influx completion from BBB transit pool to brain ISF"
+    rate_law_evidence:
+      - source: "Tier-1 simplification"
+        supports: "First-order release from BBB transit pool"
+
+  - name: PgpEfflux_AB40_BBB_to_Plasma
+    reactants:
+      - AB40_BBB
+    products:
+      - AB40_Plasma
+    rate_type: custom_conc_per_time
+    rate_equation: "k_Pgp_efflux_AB40 * (P_gp_BBB / P_gp_ref_BBB) * (AB40_BBB / V_BBB)"
+    rate_parameters:
+      - k_Pgp_efflux_AB40
+      - P_gp_ref_BBB
+      - V_BBB
+    evidence:
+      - source: "P-gp contribution to AB efflux at BBB"
+        supports: "Transporter-assisted efflux augmentation"
+    rate_law_evidence:
+      - source: "Tier-1 linear transporter scaling"
+        supports: "First-order in substrate and transporter level"
+
+  - name: Passive_AB40_BrainISF_BBB
+    reactants:
+      - AB40_BrainISF
+    products:
+      - AB40_BBB
+    rate_type: BDF
+    rate_parameters:
+      - k_passive_BrainISF_BBB_AB40
+    evidence:
+      - pmid: "16081038"
+        source: "Pardridge 2005"
+        supports: "Passive permeability contribution across BBB"
+    rate_law_evidence:
+      - source: "Elbert-style bidirectional flow construct"
+        supports: "Single reversible exchange constant for simplified passive transport"
+
+  - name: Passive_AB40_BBB_Plasma
+    reactants:
+      - AB40_BBB
+    products:
+      - AB40_Plasma
+    rate_type: BDF
+    rate_parameters:
+      - k_passive_BBB_Plasma_AB40
+    evidence:
+      - source: "BBB permeability abstraction"
+        supports: "Passive exchange between endothelial pool and plasma"
+    rate_law_evidence:
+      - source: "Tier-1 bidirectional lumping"
+        supports: "Reversible passive term"
+
+  - name: BulkFlow_AB40_BrainISF_to_CSF
+    reactants:
+      - AB40_BrainISF
+    products:
+      - AB40_CSF
+    rate_type: UDF
+    rate_parameters:
+      - k_AB40_BrainISF_to_CSF
+    evidence:
+      - source: "Elbert flow structure and CSF turnover terms"
+        snippet: "Q_CSF = 0.024; Flow terms scale with concentration and flow"
+        supports: "Convective movement from interstitial/brain fluid into CSF stream"
+    rate_law_evidence:
+      - source: "Tier-1 mapping from Q_CSF to first-order transfer"
+        supports: "UDF first-order bulk flow approximation"
+
+  - name: BulkFlow_AB40_CSF_to_Plasma
+    reactants:
+      - AB40_CSF
+    products:
+      - AB40_Plasma
+    rate_type: UDF
+    rate_parameters:
+      - k_AB40_CSF_to_Plasma
+    evidence:
+      - source: "Elbert CSF outflow network"
+        supports: "Downstream CSF drainage to peripheral compartment"
+    rate_law_evidence:
+      - source: "Tier-1 mapping from Q_CSF and CSF volume"
+        supports: "First-order CSF clearance transfer"
+
+  - name: PlasmaClearance_AB40
+    reactants:
+      - AB40_Plasma
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - Kdeg_AB40
+    evidence:
+      - source: "Elbert parameter"
+        snippet: "Kdeg_AB40 = 7.002601312955259 # Fit to plasma data"
+        supports: "AB40 plasma degradation/clearance rate"
+    rate_law_evidence:
+      - source: "Elbert plasma fit"
+        supports: "First-order peripheral clearance"
+
+  - name: LRP1Efflux_AB42_BrainISF_to_BBB
+    reactants:
+      - AB42_BrainISF
+    products:
+      - AB42_BBB
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_LRP1_AB42 * (LRP1_BBB / LRP1_ref_BBB) * (AB42_BrainISF / V_BrainISF)) / (Km_LRP1_AB42 + (AB42_BrainISF / V_BrainISF))"
+    rate_parameters:
+      - Vmax_LRP1_AB42
+      - Km_LRP1_AB42
+      - LRP1_ref_BBB
+      - V_BrainISF
+    evidence:
+      - pmid: "15313568"
+        source: "Deane et al. 2004"
+        supports: "LRP1-mediated AB efflux from brain-facing side of BBB"
+    rate_law_evidence:
+      - source: "Strategy vascular BBB section 3"
+        supports: "Michaelis-Menten form for LRP1 transport"
+
+  - name: LRP1Release_AB42_BBB_to_Plasma
+    reactants:
+      - AB42_BBB
+    products:
+      - AB42_Plasma
+    rate_type: UDF
+    rate_parameters:
+      - k_LRP1_release_AB42
+    evidence:
+      - source: "Mechanistic transcytosis abstraction"
+        supports: "Efflux completion from BBB transit pool to plasma"
+    rate_law_evidence:
+      - source: "Tier-1 simplification"
+        supports: "First-order release from BBB transit pool"
+
+  - name: RAGEInflux_AB42_Plasma_to_BBB
+    reactants:
+      - AB42_Plasma
+    products:
+      - AB42_BBB
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_RAGE_AB42 * (RAGE_BBB / RAGE_ref_BBB) * (AB42_Plasma / V_Plasma)) / (Km_RAGE_AB42 + (AB42_Plasma / V_Plasma))"
+    rate_parameters:
+      - Vmax_RAGE_AB42
+      - Km_RAGE_AB42
+      - RAGE_ref_BBB
+      - V_Plasma
+    evidence:
+      - pmid: "12805289"
+      - source: "Deane et al. 2003"
+        supports: "RAGE-mediated AB influx from blood to brain"
+    rate_law_evidence:
+      - source: "Strategy vascular BBB section 3"
+        supports: "Michaelis-Menten form for RAGE transport"
+
+  - name: RAGERelease_AB42_BBB_to_BrainISF
+    reactants:
+      - AB42_BBB
+    products:
+      - AB42_BrainISF
+    rate_type: UDF
+    rate_parameters:
+      - k_RAGE_release_AB42
+    evidence:
+      - source: "Mechanistic transcytosis abstraction"
+        supports: "Influx completion from BBB transit pool to brain ISF"
+    rate_law_evidence:
+      - source: "Tier-1 simplification"
+        supports: "First-order release from BBB transit pool"
+
+  - name: PgpEfflux_AB42_BBB_to_Plasma
+    reactants:
+      - AB42_BBB
+    products:
+      - AB42_Plasma
+    rate_type: custom_conc_per_time
+    rate_equation: "k_Pgp_efflux_AB42 * (P_gp_BBB / P_gp_ref_BBB) * (AB42_BBB / V_BBB)"
+    rate_parameters:
+      - k_Pgp_efflux_AB42
+      - P_gp_ref_BBB
+      - V_BBB
+    evidence:
+      - source: "P-gp contribution to AB efflux at BBB"
+        supports: "Transporter-assisted efflux augmentation"
+    rate_law_evidence:
+      - source: "Tier-1 linear transporter scaling"
+        supports: "First-order in substrate and transporter level"
+
+  - name: Passive_AB42_BrainISF_BBB
+    reactants:
+      - AB42_BrainISF
+    products:
+      - AB42_BBB
+    rate_type: BDF
+    rate_parameters:
+      - k_passive_BrainISF_BBB_AB42
+    evidence:
+      - pmid: "16081038"
+        source: "Pardridge 2005"
+        supports: "Passive permeability contribution across BBB"
+    rate_law_evidence:
+      - source: "Elbert-style bidirectional flow construct"
+        supports: "Single reversible exchange constant for simplified passive transport"
+
+  - name: Passive_AB42_BBB_Plasma
+    reactants:
+      - AB42_BBB
+    products:
+      - AB42_Plasma
+    rate_type: BDF
+    rate_parameters:
+      - k_passive_BBB_Plasma_AB42
+    evidence:
+      - source: "BBB permeability abstraction"
+        supports: "Passive exchange between endothelial pool and plasma"
+    rate_law_evidence:
+      - source: "Tier-1 bidirectional lumping"
+        supports: "Reversible passive term"
+
+  - name: BulkFlow_AB42_BrainISF_to_CSF
+    reactants:
+      - AB42_BrainISF
+    products:
+      - AB42_CSF
+    rate_type: UDF
+    rate_parameters:
+      - k_AB42_BrainISF_to_CSF
+    evidence:
+      - source: "Elbert flow structure and CSF turnover terms"
+        supports: "Convective movement from interstitial/brain fluid into CSF stream"
+    rate_law_evidence:
+      - source: "Tier-1 mapping from Q_CSF to first-order transfer"
+        supports: "UDF first-order bulk flow approximation"
+
+  - name: BulkFlow_AB42_CSF_to_Plasma
+    reactants:
+      - AB42_CSF
+    products:
+      - AB42_Plasma
+    rate_type: UDF
+    rate_parameters:
+      - k_AB42_CSF_to_Plasma
+    evidence:
+      - source: "Elbert CSF outflow network"
+        supports: "Downstream CSF drainage to peripheral compartment"
+    rate_law_evidence:
+      - source: "Tier-1 mapping from Q_CSF and CSF volume"
+        supports: "First-order CSF clearance transfer"
+
+  - name: PlasmaClearance_AB42
+    reactants:
+      - AB42_Plasma
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - Kdeg_AB42
+    evidence:
+      - source: "Elbert parameter"
+        snippet: "Kdeg_AB42 = 10.236480516894925 # Fit to plasma data"
+        supports: "AB42 plasma degradation/clearance rate"
+    rate_law_evidence:
+      - source: "Elbert plasma fit"
+        supports: "First-order peripheral clearance"
+
+  - name: sLRP1Scavenging_AB40_Plasma
+    reactants:
+      - AB40_Plasma
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_sLRP1_bind_AB40 * (AB40_Plasma / V_Plasma) * (sLRP1_Plasma / V_Plasma)"
+    rate_parameters:
+      - k_sLRP1_bind_AB40
+      - V_Plasma
+    evidence:
+      - source: "Peripheral sink role of soluble LRP1 for circulating AB"
+        supports: "sLRP1-mediated sequestration/clearance in plasma"
+    rate_law_evidence:
+      - source: "Bimolecular sink approximation"
+        supports: "Second-order concentration-dependent scavenging"
+
+  - name: sLRP1Scavenging_AB42_Plasma
+    reactants:
+      - AB42_Plasma
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_sLRP1_bind_AB42 * (AB42_Plasma / V_Plasma) * (sLRP1_Plasma / V_Plasma)"
+    rate_parameters:
+      - k_sLRP1_bind_AB42
+      - V_Plasma
+    evidence:
+      - source: "Peripheral sink role of soluble LRP1 for circulating AB"
+        supports: "sLRP1-mediated sequestration/clearance in plasma"
+    rate_law_evidence:
+      - source: "Bimolecular sink approximation"
+        supports: "Second-order concentration-dependent scavenging"
+
+  - name: LRP1Synthesis_BBB
+    reactants: []
+    products:
+      - LRP1_BBB
+    rate_type: MA
+    rate_parameters:
+      - k_LRP1_synth_BBB
+    evidence:
+      - source: "Strategy vascular BBB receptor dynamics"
+        supports: "Baseline LRP1 turnover term"
+    rate_law_evidence:
+      - source: "Tier-1 receptor homeostasis closure"
+        supports: "Zero-order synthesis"
+
+  - name: LRP1Degradation_BBB
+    reactants:
+      - LRP1_BBB
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_LRP1_deg_BBB
+    evidence:
+      - source: "Strategy vascular BBB receptor dynamics"
+        supports: "LRP1 loss in disease context"
+    rate_law_evidence:
+      - source: "Tier-1 receptor homeostasis closure"
+        supports: "First-order degradation"
+
+  - name: RAGESynthesis_BBB
+    reactants: []
+    products:
+      - RAGE_BBB
+    rate_type: MA
+    rate_parameters:
+      - k_RAGE_synth_BBB
+    evidence:
+      - source: "Strategy vascular BBB receptor dynamics"
+        supports: "Baseline RAGE expression term"
+    rate_law_evidence:
+      - source: "Tier-1 receptor homeostasis closure"
+        supports: "Zero-order synthesis"
+
+  - name: RAGEDegradation_BBB
+    reactants:
+      - RAGE_BBB
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_RAGE_deg_BBB
+    evidence:
+      - source: "Strategy vascular BBB receptor dynamics"
+        supports: "RAGE turnover term"
+    rate_law_evidence:
+      - source: "Tier-1 receptor homeostasis closure"
+        supports: "First-order degradation"
+
+parameters:
+  - name: V_BrainISF
+    value: 0.25
+    units: L
+    confidence: estimated
+    source: "Tier-1 module architecture (strategy)"
+
+  - name: V_CSF
+    value: 0.14
+    units: L
+    confidence: estimated
+    source: "Tier-1 module architecture (strategy)"
+
+  - name: V_Plasma
+    value: 3.0
+    units: L
+    confidence: estimated
+    source: "Tier-1 module architecture (strategy)"
+
+  - name: V_BBB
+    value: 0.002
+    units: L
+    confidence: estimated
+    source: "Strategy vascular BBB conceptual endothelial volume"
+
+  - name: K_BBB_transport
+    value: 0.1
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert_Esguerra 1h parameter K_BBB_transport = 1e-1"
+
+  - name: Q_CSF
+    value: 0.024
+    units: L/hr
+    confidence: measured
+    source: "Elbert_Esguerra 1h parameter Q_CSF = 0.024"
+
+  - name: Q_BrainISF
+    value: 0.0105
+    units: L/hr
+    confidence: estimated
+    source: "Elbert_Esguerra commented reference (Q_BrainISF = 0#0.0105), activated for Tier-1 transport"
+
+  - name: Kdeg_AB40
+    value: 7.002601312955259
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert_Esguerra 1h fitted plasma parameter"
+
+  - name: Kdeg_AB42
+    value: 10.236480516894925
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert_Esguerra 1h fitted plasma parameter"
+
+  - name: LRP1_ref_BBB
+    value: 1.0e-9
+    units: mol
+    confidence: estimated
+    source: "Reference scaling amount for BBB LRP1 activity"
+
+  - name: RAGE_ref_BBB
+    value: 0.6e-9
+    units: mol
+    confidence: estimated
+    source: "Reference scaling amount for BBB RAGE activity"
+
+  - name: P_gp_ref_BBB
+    value: 0.8e-9
+    units: mol
+    confidence: estimated
+    source: "Reference scaling amount for BBB P-gp activity"
+
+  - name: Vmax_LRP1_AB40
+    value: 1.2e-9
+    units: mol/hr
+    confidence: estimated
+    source: "Strategy range (0.5-5.0 nmol/hr) mapped to Tier-1 midpoint"
+
+  - name: Km_LRP1_AB40
+    value: 2.0e-8
+    units: mol/L
+    confidence: estimated
+    source: "Strategy range (5-50 nM), Deane 2004"
+
+  - name: Vmax_LRP1_AB42
+    value: 9.0e-10
+    units: mol/hr
+    confidence: estimated
+    source: "Strategy range adaptation for AB42"
+
+  - name: Km_LRP1_AB42
+    value: 1.5e-8
+    units: mol/L
+    confidence: estimated
+    source: "Strategy range (5-50 nM), Deane 2004"
+
+  - name: Vmax_RAGE_AB40
+    value: 2.0e-10
+    units: mol/hr
+    confidence: estimated
+    source: "Strategy range (0.05-0.5 nmol/hr), Deane 2003"
+
+  - name: Km_RAGE_AB40
+    value: 8.0e-8
+    units: mol/L
+    confidence: estimated
+    source: "Strategy range (50-100 nM), Deane 2003"
+
+  - name: Vmax_RAGE_AB42
+    value: 1.5e-10
+    units: mol/hr
+    confidence: estimated
+    source: "Strategy range adaptation for AB42"
+
+  - name: Km_RAGE_AB42
+    value: 7.0e-8
+    units: mol/L
+    confidence: estimated
+    source: "Strategy range (50-100 nM), Deane 2003"
+
+  - name: k_LRP1_release_AB40
+    value: 0.8
+    units: 1/hr
+    confidence: estimated
+    source: "Tier-1 transcytosis release approximation"
+
+  - name: k_LRP1_release_AB42
+    value: 0.8
+    units: 1/hr
+    confidence: estimated
+    source: "Tier-1 transcytosis release approximation"
+
+  - name: k_RAGE_release_AB40
+    value: 0.6
+    units: 1/hr
+    confidence: estimated
+    source: "Tier-1 transcytosis release approximation"
+
+  - name: k_RAGE_release_AB42
+    value: 0.6
+    units: 1/hr
+    confidence: estimated
+    source: "Tier-1 transcytosis release approximation"
+
+  - name: k_Pgp_efflux_AB40
+    value: 0.4
+    units: 1/hr
+    confidence: estimated
+    source: "Tier-1 P-gp assisted efflux estimate"
+
+  - name: k_Pgp_efflux_AB42
+    value: 0.35
+    units: 1/hr
+    confidence: estimated
+    source: "Tier-1 P-gp assisted efflux estimate"
+
+  - name: k_passive_BrainISF_BBB_AB40
+    value: 0.005
+    units: 1/hr
+    confidence: estimated
+    source: "Passive permeability baseline (strategy/Pardridge-derived order-of-magnitude)"
+
+  - name: k_passive_BrainISF_BBB_AB42
+    value: 0.004
+    units: 1/hr
+    confidence: estimated
+    source: "Passive permeability baseline (strategy/Pardridge-derived order-of-magnitude)"
+
+  - name: k_passive_BBB_Plasma_AB40
+    value: 0.01
+    units: 1/hr
+    confidence: estimated
+    source: "Passive endothelial-plasma exchange estimate"
+
+  - name: k_passive_BBB_Plasma_AB42
+    value: 0.008
+    units: 1/hr
+    confidence: estimated
+    source: "Passive endothelial-plasma exchange estimate"
+
+  - name: k_AB40_BrainISF_to_CSF
+    value: 0.09
+    units: 1/hr
+    confidence: estimated
+    source: "Q_CSF/V_BrainISF scaling from Elbert flow terms"
+
+  - name: k_AB42_BrainISF_to_CSF
+    value: 0.09
+    units: 1/hr
+    confidence: estimated
+    source: "Q_CSF/V_BrainISF scaling from Elbert flow terms"
+
+  - name: k_AB40_CSF_to_Plasma
+    value: 0.17
+    units: 1/hr
+    confidence: estimated
+    source: "Q_CSF/V_CSF scaling from Elbert flow terms"
+
+  - name: k_AB42_CSF_to_Plasma
+    value: 0.17
+    units: 1/hr
+    confidence: estimated
+    source: "Q_CSF/V_CSF scaling from Elbert flow terms"
+
+  - name: k_sLRP1_bind_AB40
+    value: 1.0e5
+    units: L/(mol*hr)
+    confidence: assumed
+    source: "Tier-1 second-order plasma scavenging estimate"
+
+  - name: k_sLRP1_bind_AB42
+    value: 1.2e5
+    units: L/(mol*hr)
+    confidence: assumed
+    source: "Tier-1 second-order plasma scavenging estimate"
+
+  - name: k_LRP1_synth_BBB
+    value: 5.0e-11
+    units: mol/hr
+    confidence: assumed
+    source: "Strategy receptor turnover placeholder"
+
+  - name: k_LRP1_deg_BBB
+    value: 0.02
+    units: 1/hr
+    confidence: assumed
+    source: "Strategy receptor turnover placeholder"
+
+  - name: k_RAGE_synth_BBB
+    value: 2.0e-11
+    units: mol/hr
+    confidence: assumed
+    source: "Strategy receptor turnover placeholder"
+
+  - name: k_RAGE_deg_BBB
+    value: 0.02
+    units: 1/hr
+    confidence: assumed
+    source: "Strategy receptor turnover placeholder"
+
+evidence:
+  - source: "Elbert_Esguerra_model_v2026b Antimony_Elbert_Esguerra_1h_parameters.txt"
+    snippet: "K_BBB_transport = 1e-1; Q_CSF = 0.024; Kdeg_AB40 = 7.002601312955259; Kdeg_AB42 = 10.236480516894925"
+    supports: "Primary transport and plasma clearance constants"
+  - source: "Elbert_Esguerra_model_v2026b Antimony_Elbert_Esguerra_1h_all_reactions.txt"
+    snippet: "BBBTransport_AB40_BrainISF, BBBTransport_AB42_BrainISF, FlowWithinTissue_* and FlowBetweenModules_* CSF terms"
+    supports: "Reaction topology for BBB export and CSF bulk-flow transport"
+  - pmid: "15313568"
+    source: "Deane et al. 2004"
+    supports: "LRP1-mediated AB efflux"
+  - pmid: "12805289"
+    source: "Deane et al. 2003"
+    supports: "RAGE-mediated AB influx"
+  - pmid: "22896675"
+    source: "Iliff et al. 2012"
+    supports: "Perivascular/CSF clearance context for convective transport"

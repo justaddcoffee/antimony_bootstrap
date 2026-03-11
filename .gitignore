@@ -32,6 +32,15 @@ htmlcov/
 # Claude Code
 .mcp.json
 
+# Vendored MCP servers
+vendor/
+
 # Generated output
 *.ant
 *.sbml
+
+# Large data directory
+data/
+
+# Local Claude settings
+.claude/settings.local.json

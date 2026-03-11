@@ -1,0 +1,862 @@
+name: neuroinflammation_microglia
+description: >
+  Tier 2 neuroinflammation microglia module for Alzheimer's disease ODE models.
+  Captures microglial state transitions (resting, M1, M2, DAM), TREM2-SYK/CD33
+  signaling, cytokine production and degradation, fractalkine signaling, and
+  microglia-mediated phagocytosis.
+mechanism: "Neuroinflammation"
+notes: "Tier: 2. Compartments constrained to Microglia and BrainISF. TGFbeta represented as TGFB."
+
+compartments:
+  - name: Microglia
+    volume_parameter: V_Microglia
+    volume_value: 1.0
+    volume_units: L
+    notes: "Lumped effective microglia compartment for state and receptor dynamics."
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.25
+    volume_units: L
+    notes: "Interstitial fluid compartment for cytokines and amyloid burden signals."
+
+species:
+  - name: MICROGLIA_resting_Microglia
+    initial_amount: 1.0
+    units: cell_equiv
+  - name: MICROGLIA_M1_Microglia
+    initial_amount: 0.05
+    units: cell_equiv
+  - name: MICROGLIA_M2_Microglia
+    initial_amount: 0.03
+    units: cell_equiv
+  - name: MICROGLIA_DAM_Microglia
+    initial_amount: 0.02
+    units: cell_equiv
+  - name: TREM2_Microglia
+    initial_amount: 1.0e-9
+    units: mol
+  - name: TREM2_active_Microglia
+    initial_amount: 0.1e-9
+    units: mol
+  - name: CD33_Microglia
+    initial_amount: 0.3e-9
+    units: mol
+  - name: SYK_inactive_Microglia
+    initial_amount: 1.0e-9
+    units: mol
+  - name: SYK_active_Microglia
+    initial_amount: 0.1e-9
+    units: mol
+  - name: CX3CR1_Microglia
+    initial_amount: 0.8e-9
+    units: mol
+  - name: TNFA_BrainISF
+    initial_amount: 0.01e-9
+    units: mol
+  - name: IL1B_BrainISF
+    initial_amount: 0.005e-9
+    units: mol
+  - name: IL6_BrainISF
+    initial_amount: 0.01e-9
+    units: mol
+  - name: IL10_BrainISF
+    initial_amount: 0.02e-9
+    units: mol
+  - name: TGFB_BrainISF
+    initial_amount: 0.03e-9
+    units: mol
+  - name: BDNF_BrainISF
+    initial_amount: 0.05e-9
+    units: mol
+  - name: CX3CL1_BrainISF
+    initial_amount: 0.08e-9
+    units: mol
+  - name: AB42_oligomer_BrainISF
+    initial_amount: 0.2e-9
+    units: mol
+  - name: AB_plaque_BrainISF
+    initial_amount: 0.15e-9
+    units: mol
+  - name: Debris_BrainISF
+    initial_amount: 0.2e-9
+    units: mol
+
+reactions:
+  - name: RestingBirth_Microglia
+    reactants: []
+    products:
+      - MICROGLIA_resting_Microglia
+    rate_type: MA
+    rate_parameters:
+      - k_resting_birth
+
+  - name: RestingTurnover_Microglia
+    reactants:
+      - MICROGLIA_resting_Microglia
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_resting_turnover
+
+  - name: M1Turnover_Microglia
+    reactants:
+      - MICROGLIA_M1_Microglia
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_M1_turnover
+
+  - name: M2Turnover_Microglia
+    reactants:
+      - MICROGLIA_M2_Microglia
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_M2_turnover
+
+  - name: DAMTurnover_Microglia
+    reactants:
+      - MICROGLIA_DAM_Microglia
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_DAM_turnover
+
+  - name: RestingToM1_by_AB42_TNFA
+    reactants:
+      - MICROGLIA_resting_Microglia
+    products:
+      - MICROGLIA_M1_Microglia
+    rate_type: custom_conc_per_time
+    rate_equation: "k_resting_to_M1 * MICROGLIA_resting_Microglia * (AB42_oligomer_BrainISF / (K_AB42_M1 + AB42_oligomer_BrainISF)) * (1 + amp_TNFA_M1 * TNFA_BrainISF / (K_TNFA_M1 + TNFA_BrainISF))"
+    rate_parameters:
+      - k_resting_to_M1
+      - K_AB42_M1
+      - amp_TNFA_M1
+      - K_TNFA_M1
+
+  - name: RestingToM2_by_IL10_TGFB
+    reactants:
+      - MICROGLIA_resting_Microglia
+    products:
+      - MICROGLIA_M2_Microglia
+    rate_type: custom_conc_per_time
+    rate_equation: "k_resting_to_M2 * MICROGLIA_resting_Microglia * (IL10_BrainISF / (K_IL10_M2 + IL10_BrainISF)) * (TGFB_BrainISF / (K_TGFB_M2 + TGFB_BrainISF))"
+    rate_parameters:
+      - k_resting_to_M2
+      - K_IL10_M2
+      - K_TGFB_M2
+
+  - name: RestingToDAM_by_AB42
+    reactants:
+      - MICROGLIA_resting_Microglia
+    products:
+      - MICROGLIA_DAM_Microglia
+    rate_type: custom_conc_per_time
+    rate_equation: "k_resting_to_DAM * MICROGLIA_resting_Microglia * (AB42_oligomer_BrainISF / (K_AB42_DAM + AB42_oligomer_BrainISF))"
+    rate_parameters:
+      - k_resting_to_DAM
+      - K_AB42_DAM
+
+  - name: DAMToM1_by_CD33
+    reactants:
+      - MICROGLIA_DAM_Microglia
+    products:
+      - MICROGLIA_M1_Microglia
+    rate_type: custom_conc_per_time
+    rate_equation: "k_DAM_to_M1 * MICROGLIA_DAM_Microglia * (CD33_Microglia / (K_CD33_DAM + CD33_Microglia))"
+    rate_parameters:
+      - k_DAM_to_M1
+      - K_CD33_DAM
+
+  - name: M1ToM2_by_IL10
+    reactants:
+      - MICROGLIA_M1_Microglia
+    products:
+      - MICROGLIA_M2_Microglia
+    rate_type: custom_conc_per_time
+    rate_equation: "k_M1_to_M2 * MICROGLIA_M1_Microglia * (IL10_BrainISF / (K_IL10_resolve + IL10_BrainISF))"
+    rate_parameters:
+      - k_M1_to_M2
+      - K_IL10_resolve
+
+  - name: M2ToResting
+    reactants:
+      - MICROGLIA_M2_Microglia
+    products:
+      - MICROGLIA_resting_Microglia
+    rate_type: MA
+    rate_parameters:
+      - k_M2_to_resting
+
+  - name: M1ToResting_by_IL10
+    reactants:
+      - MICROGLIA_M1_Microglia
+    products:
+      - MICROGLIA_resting_Microglia
+    rate_type: custom_conc_per_time
+    rate_equation: "k_M1_to_resting * MICROGLIA_M1_Microglia * (IL10_BrainISF / (K_IL10_resting + IL10_BrainISF))"
+    rate_parameters:
+      - k_M1_to_resting
+      - K_IL10_resting
+
+  - name: DAMToResting
+    reactants:
+      - MICROGLIA_DAM_Microglia
+    products:
+      - MICROGLIA_resting_Microglia
+    rate_type: MA
+    rate_parameters:
+      - k_DAM_to_resting
+
+  - name: TREM2Synthesis
+    reactants: []
+    products:
+      - TREM2_Microglia
+    rate_type: MA
+    rate_parameters:
+      - k_TREM2_syn
+
+  - name: TREM2Degradation
+    reactants:
+      - TREM2_Microglia
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_TREM2_deg
+
+  - name: TREM2Activation_by_AB42
+    reactants:
+      - TREM2_Microglia
+    products:
+      - TREM2_active_Microglia
+    rate_type: custom_conc_per_time
+    rate_equation: "k_TREM2_act * TREM2_Microglia * (AB42_oligomer_BrainISF / (K_AB42_TREM2 + AB42_oligomer_BrainISF))"
+    rate_parameters:
+      - k_TREM2_act
+      - K_AB42_TREM2
+
+  - name: TREM2Inactivation
+    reactants:
+      - TREM2_active_Microglia
+    products:
+      - TREM2_Microglia
+    rate_type: MA
+    rate_parameters:
+      - k_TREM2_inact
+
+  - name: SYKActivation_by_TREM2
+    reactants:
+      - SYK_inactive_Microglia
+    products:
+      - SYK_active_Microglia
+    rate_type: custom_conc_per_time
+    rate_equation: "k_SYK_act * SYK_inactive_Microglia * (TREM2_active_Microglia / (K_TREM2_SYK + TREM2_active_Microglia))"
+    rate_parameters:
+      - k_SYK_act
+      - K_TREM2_SYK
+
+  - name: SYKInactivation
+    reactants:
+      - SYK_active_Microglia
+    products:
+      - SYK_inactive_Microglia
+    rate_type: MA
+    rate_parameters:
+      - k_SYK_inact
+
+  - name: CD33Mediated_TREM2Suppression
+    reactants:
+      - TREM2_active_Microglia
+    products:
+      - TREM2_Microglia
+    rate_type: custom_conc_per_time
+    rate_equation: "k_CD33_TREM2_suppress * TREM2_active_Microglia * (CD33_Microglia / (K_CD33_TREM2 + CD33_Microglia))"
+    rate_parameters:
+      - k_CD33_TREM2_suppress
+      - K_CD33_TREM2
+
+  - name: CD33Synthesis
+    reactants: []
+    products:
+      - CD33_Microglia
+    rate_type: MA
+    rate_parameters:
+      - k_CD33_syn
+
+  - name: CD33Degradation
+    reactants:
+      - CD33_Microglia
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_CD33_deg
+
+  - name: CX3CR1Synthesis
+    reactants: []
+    products:
+      - CX3CR1_Microglia
+    rate_type: MA
+    rate_parameters:
+      - k_CX3CR1_syn
+
+  - name: CX3CR1Degradation
+    reactants:
+      - CX3CR1_Microglia
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_CX3CR1_deg
+
+  - name: M1ToM2_by_CX3CL1_CX3CR1
+    reactants:
+      - MICROGLIA_M1_Microglia
+    products:
+      - MICROGLIA_M2_Microglia
+    rate_type: custom_conc_per_time
+    rate_equation: "k_M1_to_M2_CX3 * MICROGLIA_M1_Microglia * (CX3CL1_BrainISF / (K_CX3CL1 + CX3CL1_BrainISF)) * (CX3CR1_Microglia / (K_CX3CR1 + CX3CR1_Microglia))"
+    rate_parameters:
+      - k_M1_to_M2_CX3
+      - K_CX3CL1
+      - K_CX3CR1
+
+  - name: TNFAProduction_by_M1
+    reactants: []
+    products:
+      - TNFA_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_prod_TNFA * MICROGLIA_M1_Microglia * (1 / (1 + IL10_BrainISF / Ki_IL10_TNFA))"
+    rate_parameters:
+      - k_prod_TNFA
+      - Ki_IL10_TNFA
+
+  - name: IL1BProduction_by_M1
+    reactants: []
+    products:
+      - IL1B_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_prod_IL1B * MICROGLIA_M1_Microglia * (1 / (1 + IL10_BrainISF / Ki_IL10_IL1B))"
+    rate_parameters:
+      - k_prod_IL1B
+      - Ki_IL10_IL1B
+
+  - name: IL6Production_by_M1
+    reactants: []
+    products:
+      - IL6_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_prod_IL6 * MICROGLIA_M1_Microglia"
+    rate_parameters:
+      - k_prod_IL6
+
+  - name: IL10Production_by_M2_DAM
+    reactants: []
+    products:
+      - IL10_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_prod_IL10_M2 * MICROGLIA_M2_Microglia + k_prod_IL10_DAM * MICROGLIA_DAM_Microglia"
+    rate_parameters:
+      - k_prod_IL10_M2
+      - k_prod_IL10_DAM
+
+  - name: TGFBProduction_by_M2
+    reactants: []
+    products:
+      - TGFB_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_prod_TGFB * MICROGLIA_M2_Microglia"
+    rate_parameters:
+      - k_prod_TGFB
+
+  - name: BDNFProduction_by_M2
+    reactants: []
+    products:
+      - BDNF_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_prod_BDNF * MICROGLIA_M2_Microglia"
+    rate_parameters:
+      - k_prod_BDNF
+
+  - name: TNFAAutoAmplification
+    reactants: []
+    products:
+      - TNFA_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_auto_TNFA * (TNFA_BrainISF^n_auto_TNFA) / (K_auto_TNFA^n_auto_TNFA + TNFA_BrainISF^n_auto_TNFA)"
+    rate_parameters:
+      - k_auto_TNFA
+      - n_auto_TNFA
+      - K_auto_TNFA
+
+  - name: TNFADegradation
+    reactants:
+      - TNFA_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_deg_TNFA
+
+  - name: IL1BDegradation
+    reactants:
+      - IL1B_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_deg_IL1B
+
+  - name: IL6Degradation
+    reactants:
+      - IL6_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_deg_IL6
+
+  - name: IL10Degradation
+    reactants:
+      - IL10_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_deg_IL10
+
+  - name: TGFBDegradation
+    reactants:
+      - TGFB_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_deg_TGFB
+
+  - name: BDNFDegradation
+    reactants:
+      - BDNF_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_deg_BDNF
+
+  - name: CX3CL1Synthesis
+    reactants: []
+    products:
+      - CX3CL1_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_CX3CL1_syn
+
+  - name: CX3CL1Degradation
+    reactants:
+      - CX3CL1_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_CX3CL1_deg
+
+  - name: AB42OligomerPhagocytosis_by_M2_DAM
+    reactants:
+      - AB42_oligomer_BrainISF
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_phago_AB42 * (AB42_oligomer_BrainISF / V_BrainISF) * (MICROGLIA_M2_Microglia + phi_DAM_AB42 * MICROGLIA_DAM_Microglia) * (1 + alpha_TREM2_phago * TREM2_active_Microglia / (K_TREM2_phago + TREM2_active_Microglia))"
+    rate_parameters:
+      - k_phago_AB42
+      - phi_DAM_AB42
+      - alpha_TREM2_phago
+      - K_TREM2_phago
+      - V_BrainISF
+
+  - name: PlaquePhagocytosis_by_DAM
+    reactants:
+      - AB_plaque_BrainISF
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_phago_plaque * (AB_plaque_BrainISF / V_BrainISF) * MICROGLIA_DAM_Microglia * (TREM2_active_Microglia / (K_TREM2_plaque + TREM2_active_Microglia))"
+    rate_parameters:
+      - k_phago_plaque
+      - K_TREM2_plaque
+      - V_BrainISF
+
+  - name: DebrisClearance_by_Microglia
+    reactants:
+      - Debris_BrainISF
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_clear_debris * (Debris_BrainISF / V_BrainISF) * (MICROGLIA_resting_Microglia + 1.5 * MICROGLIA_M2_Microglia + 2.0 * MICROGLIA_DAM_Microglia)"
+    rate_parameters:
+      - k_clear_debris
+      - V_BrainISF
+
+parameters:
+  - name: V_Microglia
+    value: 1.0
+    units: L
+    confidence: assumed
+    source: "Tier-2 lumped compartment"
+  - name: V_BrainISF
+    value: 0.25
+    units: L
+    confidence: assumed
+    source: "Consistent with existing modules"
+
+  - name: k_resting_birth
+    value: 0.002
+    units: cell_equiv/day
+    confidence: estimated
+    source: "Strategy neuroinflammation microglial homeostasis"
+  - name: k_resting_turnover
+    value: 0.001
+    units: 1/day
+    confidence: estimated
+    source: "Strategy neuroinflammation microglial turnover"
+  - name: k_M1_turnover
+    value: 0.004
+    units: 1/day
+    confidence: estimated
+    source: "Estimated inflammatory-state turnover"
+  - name: k_M2_turnover
+    value: 0.003
+    units: 1/day
+    confidence: estimated
+    source: "Estimated anti-inflammatory-state turnover"
+  - name: k_DAM_turnover
+    value: 0.0025
+    units: 1/day
+    confidence: estimated
+    source: "Estimated DAM-state turnover"
+
+  - name: k_resting_to_M1
+    value: 0.02
+    units: 1/day
+    confidence: estimated
+    source: "Strategy: M0 to inflammatory transition"
+  - name: K_AB42_M1
+    value: 5.0e-10
+    units: mol
+    confidence: estimated
+    source: "Strategy AB oligomer activation scale"
+  - name: amp_TNFA_M1
+    value: 2.0
+    units: dimensionless
+    confidence: estimated
+    source: "Strategy positive feedback amplification"
+  - name: K_TNFA_M1
+    value: 1.0e-10
+    units: mol
+    confidence: estimated
+    source: "Strategy TNF activation midpoint"
+
+  - name: k_resting_to_M2
+    value: 0.01
+    units: 1/day
+    confidence: estimated
+    source: "Strategy anti-inflammatory polarization"
+  - name: K_IL10_M2
+    value: 5.0e-11
+    units: mol
+    confidence: estimated
+    source: "Strategy IL10 sensitivity"
+  - name: K_TGFB_M2
+    value: 8.0e-11
+    units: mol
+    confidence: estimated
+    source: "Strategy TGFbeta sensitivity"
+
+  - name: k_resting_to_DAM
+    value: 0.008
+    units: 1/day
+    confidence: estimated
+    source: "Strategy DAM stage entry"
+  - name: K_AB42_DAM
+    value: 5.0e-10
+    units: mol
+    confidence: estimated
+    source: "Strategy plaque/oligomer-driven DAM activation"
+  - name: k_DAM_to_M1
+    value: 0.005
+    units: 1/day
+    confidence: estimated
+    source: "Estimated CD33-biased DAM inflammatory shift"
+  - name: K_CD33_DAM
+    value: 2.0e-10
+    units: mol
+    confidence: estimated
+    source: "Estimated CD33 modulation scale"
+
+  - name: k_M1_to_M2
+    value: 0.006
+    units: 1/day
+    confidence: estimated
+    source: "Strategy inflammatory resolution"
+  - name: K_IL10_resolve
+    value: 5.0e-11
+    units: mol
+    confidence: estimated
+    source: "Strategy IL10-mediated resolution"
+  - name: k_M2_to_resting
+    value: 0.004
+    units: 1/day
+    confidence: estimated
+    source: "Estimated M2 homeostatic return"
+  - name: k_M1_to_resting
+    value: 0.004
+    units: 1/day
+    confidence: estimated
+    source: "Estimated IL10-dependent return to resting"
+  - name: K_IL10_resting
+    value: 6.0e-11
+    units: mol
+    confidence: estimated
+    source: "Estimated IL10 threshold for resting recovery"
+  - name: k_DAM_to_resting
+    value: 0.001
+    units: 1/day
+    confidence: estimated
+    source: "Estimated slow DAM reversion"
+
+  - name: k_TREM2_syn
+    value: 1.0e-11
+    units: mol/day
+    confidence: estimated
+    source: "Estimated receptor synthesis"
+  - name: k_TREM2_deg
+    value: 0.3
+    units: 1/day
+    confidence: estimated
+    source: "Estimated receptor turnover"
+  - name: k_TREM2_act
+    value: 1.5
+    units: 1/day
+    confidence: estimated
+    source: "Module parameter set and strategy trem2_signaling"
+  - name: K_AB42_TREM2
+    value: 2.0e-9
+    units: mol
+    confidence: estimated
+    source: "Module parameter file concentration evidence (~nM scale)"
+  - name: k_TREM2_inact
+    value: 0.8
+    units: 1/day
+    confidence: estimated
+    source: "Estimated receptor recycling"
+
+  - name: k_SYK_act
+    value: 1.2
+    units: 1/day
+    confidence: estimated
+    source: "TREM2-DAP12-SYK signaling abstraction"
+  - name: K_TREM2_SYK
+    value: 5.0e-11
+    units: mol
+    confidence: estimated
+    source: "Estimated SYK activation midpoint"
+  - name: k_SYK_inact
+    value: 0.8
+    units: 1/day
+    confidence: estimated
+    source: "Estimated phosphatase-driven inactivation"
+
+  - name: k_CD33_TREM2_suppress
+    value: 0.6
+    units: 1/day
+    confidence: estimated
+    source: "Estimated CD33 antagonism of TREM2 signaling"
+  - name: K_CD33_TREM2
+    value: 2.0e-10
+    units: mol
+    confidence: estimated
+    source: "Estimated CD33 inhibitory midpoint"
+  - name: k_CD33_syn
+    value: 5.0e-12
+    units: mol/day
+    confidence: assumed
+    source: "Placeholder receptor synthesis"
+  - name: k_CD33_deg
+    value: 0.2
+    units: 1/day
+    confidence: assumed
+    source: "Placeholder receptor turnover"
+
+  - name: k_CX3CR1_syn
+    value: 6.0e-12
+    units: mol/day
+    confidence: assumed
+    source: "Placeholder receptor synthesis"
+  - name: k_CX3CR1_deg
+    value: 0.15
+    units: 1/day
+    confidence: assumed
+    source: "Placeholder receptor turnover"
+  - name: k_M1_to_M2_CX3
+    value: 0.004
+    units: 1/day
+    confidence: estimated
+    source: "Fractalkine-mediated anti-inflammatory bias"
+  - name: K_CX3CL1
+    value: 1.0e-10
+    units: mol
+    confidence: estimated
+    source: "Estimated fractalkine midpoint"
+  - name: K_CX3CR1
+    value: 1.0e-10
+    units: mol
+    confidence: estimated
+    source: "Estimated receptor midpoint"
+
+  - name: k_prod_TNFA
+    value: 2.0e-11
+    units: mol/day/cell_equiv
+    confidence: estimated
+    source: "Strategy cytokine production rates"
+  - name: Ki_IL10_TNFA
+    value: 8.0e-11
+    units: mol
+    confidence: estimated
+    source: "Strategy IL10 negative feedback"
+  - name: k_prod_IL1B
+    value: 1.5e-11
+    units: mol/day/cell_equiv
+    confidence: estimated
+    source: "Strategy cytokine production rates"
+  - name: Ki_IL10_IL1B
+    value: 8.0e-11
+    units: mol
+    confidence: estimated
+    source: "Strategy IL10 negative feedback"
+  - name: k_prod_IL6
+    value: 1.0e-11
+    units: mol/day/cell_equiv
+    confidence: estimated
+    source: "Strategy cytokine production rates"
+  - name: k_prod_IL10_M2
+    value: 8.0e-12
+    units: mol/day/cell_equiv
+    confidence: estimated
+    source: "Strategy IL10 anti-inflammatory feedback"
+  - name: k_prod_IL10_DAM
+    value: 6.0e-12
+    units: mol/day/cell_equiv
+    confidence: estimated
+    source: "Estimated DAM contribution to IL10"
+  - name: k_prod_TGFB
+    value: 7.0e-12
+    units: mol/day/cell_equiv
+    confidence: estimated
+    source: "Strategy TGFbeta homeostatic support"
+  - name: k_prod_BDNF
+    value: 5.0e-12
+    units: mol/day/cell_equiv
+    confidence: estimated
+    source: "Estimated M2 neurotrophic support"
+
+  - name: k_auto_TNFA
+    value: 2.0e-12
+    units: mol/day
+    confidence: estimated
+    source: "Strategy positive TNF auto-feedback"
+  - name: n_auto_TNFA
+    value: 2.0
+    units: dimensionless
+    confidence: measured
+    source: "data/parameters/module/neuroinflammation_microglia.json (Hill_coefficient)"
+  - name: K_auto_TNFA
+    value: 1.0e-10
+    units: mol
+    confidence: estimated
+    source: "Estimated TNF auto-feedback midpoint"
+
+  - name: k_deg_TNFA
+    value: 33.0
+    units: 1/day
+    confidence: estimated
+    source: "Strategy cytokine half-life table"
+  - name: k_deg_IL1B
+    value: 17.0
+    units: 1/day
+    confidence: estimated
+    source: "Strategy cytokine half-life table"
+  - name: k_deg_IL6
+    value: 10.0
+    units: 1/day
+    confidence: estimated
+    source: "Strategy cytokine half-life table"
+  - name: k_deg_IL10
+    value: 8.0
+    units: 1/day
+    confidence: estimated
+    source: "Strategy cytokine half-life table"
+  - name: k_deg_TGFB
+    value: 5.0
+    units: 1/day
+    confidence: estimated
+    source: "Strategy cytokine half-life table"
+  - name: k_deg_BDNF
+    value: 2.0
+    units: 1/day
+    confidence: assumed
+    source: "Placeholder trophic factor clearance"
+
+  - name: k_CX3CL1_syn
+    value: 2.0e-11
+    units: mol/day
+    confidence: assumed
+    source: "Lumped neuronal release input"
+  - name: k_CX3CL1_deg
+    value: 6.0
+    units: 1/day
+    confidence: estimated
+    source: "Estimated chemokine turnover"
+
+  - name: k_phago_AB42
+    value: 1.2
+    units: 1/day
+    confidence: estimated
+    source: "Elbert-aligned microglia clearance motif + strategy phagocytosis"
+  - name: phi_DAM_AB42
+    value: 2.0
+    units: dimensionless
+    confidence: estimated
+    source: "DAM elevated phagocytic weighting"
+  - name: alpha_TREM2_phago
+    value: 2.0
+    units: dimensionless
+    confidence: estimated
+    source: "TREM2-dependent enhancement"
+  - name: K_TREM2_phago
+    value: 5.0e-11
+    units: mol
+    confidence: estimated
+    source: "Estimated TREM2 effect midpoint"
+
+  - name: k_phago_plaque
+    value: 0.8
+    units: 1/day
+    confidence: estimated
+    source: "Strategy DAM-mediated plaque phagocytosis"
+  - name: K_TREM2_plaque
+    value: 5.0e-11
+    units: mol
+    confidence: estimated
+    source: "Estimated TREM2 dependence for plaque uptake"
+
+  - name: k_clear_debris
+    value: 1.0
+    units: 1/day
+    confidence: assumed
+    source: "Lumped debris removal placeholder"
+
+evidence:
+  - pmid: "28846024"
+    source: "Keren-Shaul et al. 2017"
+    supports: "DAM state framework"
+  - pmid: "25656850"
+    source: "Heneka et al. 2015"
+    supports: "Microglial inflammatory cytokine feedback in AD"
+  - pmid: "22509247"
+    source: "vom Berg et al. 2012"
+    supports: "TNF-related inflammatory signaling in AD context"
+  - pmcid: "PMC2213053"
+    source: "module parameter extraction"
+    supports: "Hill coefficient signal for TREM2-associated nonlinear terms"
+  - pmcid: "PMC9991924"
+    source: "module parameter extraction"
+    supports: "TREM2 signaling concentration-scale guidance"

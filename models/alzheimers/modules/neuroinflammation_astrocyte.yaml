@@ -1,0 +1,586 @@
+name: neuroinflammation_astrocyte
+description: >
+  Tier 2 neuroinflammation astrocyte module for Alzheimer's disease ODE models.
+  Captures astrocyte state transitions (resting, A1, A2), GFAP and S100B dynamics,
+  EAAT2-mediated glutamate handling, and AQP4-linked glymphatic AB42 clearance.
+mechanism: "Neuroinflammation"
+notes: "Tier: 2. Compartments constrained to Astrocyte and BrainISF."
+
+compartments:
+  - name: Astrocyte
+    volume_parameter: V_Astrocyte
+    volume_value: 1.0
+    volume_units: L
+    notes: "Lumped effective astrocyte compartment for state occupancy and intracellular proteins."
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.25
+    volume_units: L
+    notes: "Interstitial fluid compartment for cytokines, glutamate, AB42, and secreted S100B."
+
+species:
+  - name: ASTROCYTE_resting_Astrocyte
+    initial_amount: 1.0
+    units: cell_equiv
+  - name: ASTROCYTE_A1_Astrocyte
+    initial_amount: 0.05
+    units: cell_equiv
+  - name: ASTROCYTE_A2_Astrocyte
+    initial_amount: 0.03
+    units: cell_equiv
+  - name: GFAP_Astrocyte
+    initial_amount: 0.2e-9
+    units: mol
+  - name: S100B_Astrocyte
+    initial_amount: 0.2e-9
+    units: mol
+  - name: AQP4_Astrocyte
+    initial_amount: 1.0e-9
+    units: mol
+  - name: EAAT2_Astrocyte
+    initial_amount: 1.2e-9
+    units: mol
+  - name: glutamate_BrainISF
+    initial_amount: 0.2e-9
+    units: mol
+  - name: S100B_BrainISF
+    initial_amount: 0.02e-9
+    units: mol
+  - name: S100B_AB42_complex_BrainISF
+    initial_amount: 0.0
+    units: mol
+  - name: AB42_BrainISF
+    initial_amount: 1.0e-9
+    units: mol
+  - name: TNFA_BrainISF
+    initial_amount: 0.01e-9
+    units: mol
+  - name: IL1B_BrainISF
+    initial_amount: 0.005e-9
+    units: mol
+  - name: C1Q_BrainISF
+    initial_amount: 0.03e-9
+    units: mol
+  - name: IL10_BrainISF
+    initial_amount: 0.02e-9
+    units: mol
+  - name: TGFB_BrainISF
+    initial_amount: 0.03e-9
+    units: mol
+
+reactions:
+  - name: RestingBirth_Astrocyte
+    reactants: []
+    products:
+      - ASTROCYTE_resting_Astrocyte
+    rate_type: MA
+    rate_parameters:
+      - k_resting_birth_ast
+
+  - name: RestingTurnover_Astrocyte
+    reactants:
+      - ASTROCYTE_resting_Astrocyte
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_resting_turnover_ast
+
+  - name: A1Turnover_Astrocyte
+    reactants:
+      - ASTROCYTE_A1_Astrocyte
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_A1_turnover_ast
+
+  - name: A2Turnover_Astrocyte
+    reactants:
+      - ASTROCYTE_A2_Astrocyte
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_A2_turnover_ast
+
+  - name: RestingToA1_by_TNFA_IL1B_C1Q
+    reactants:
+      - ASTROCYTE_resting_Astrocyte
+    products:
+      - ASTROCYTE_A1_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_resting_to_A1 * ASTROCYTE_resting_Astrocyte * (TNFA_BrainISF / (K_TNFA_A1 + TNFA_BrainISF)) * (IL1B_BrainISF / (K_IL1B_A1 + IL1B_BrainISF)) * (C1Q_BrainISF / (K_C1Q_A1 + C1Q_BrainISF))"
+    rate_parameters:
+      - k_resting_to_A1
+      - K_TNFA_A1
+      - K_IL1B_A1
+      - K_C1Q_A1
+
+  - name: RestingToA2_by_IL10_TGFB
+    reactants:
+      - ASTROCYTE_resting_Astrocyte
+    products:
+      - ASTROCYTE_A2_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_resting_to_A2 * ASTROCYTE_resting_Astrocyte * (IL10_BrainISF / (K_IL10_A2 + IL10_BrainISF)) * (TGFB_BrainISF / (K_TGFB_A2 + TGFB_BrainISF))"
+    rate_parameters:
+      - k_resting_to_A2
+      - K_IL10_A2
+      - K_TGFB_A2
+
+  - name: A1ToResting_by_IL10
+    reactants:
+      - ASTROCYTE_A1_Astrocyte
+    products:
+      - ASTROCYTE_resting_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_A1_to_resting * ASTROCYTE_A1_Astrocyte * (IL10_BrainISF / (K_IL10_resolve_ast + IL10_BrainISF))"
+    rate_parameters:
+      - k_A1_to_resting
+      - K_IL10_resolve_ast
+
+  - name: A2ToResting_Astrocyte
+    reactants:
+      - ASTROCYTE_A2_Astrocyte
+    products:
+      - ASTROCYTE_resting_Astrocyte
+    rate_type: MA
+    rate_parameters:
+      - k_A2_to_resting_ast
+
+  - name: A1ToA2_by_TGFB
+    reactants:
+      - ASTROCYTE_A1_Astrocyte
+    products:
+      - ASTROCYTE_A2_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_A1_to_A2 * ASTROCYTE_A1_Astrocyte * (TGFB_BrainISF / (K_TGFB_A1A2 + TGFB_BrainISF))"
+    rate_parameters:
+      - k_A1_to_A2
+      - K_TGFB_A1A2
+
+  - name: A2ToA1_by_TNFA
+    reactants:
+      - ASTROCYTE_A2_Astrocyte
+    products:
+      - ASTROCYTE_A1_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_A2_to_A1 * ASTROCYTE_A2_Astrocyte * (TNFA_BrainISF / (K_TNFA_A2A1 + TNFA_BrainISF))"
+    rate_parameters:
+      - k_A2_to_A1
+      - K_TNFA_A2A1
+
+  - name: GFAPSynthesis_Basal
+    reactants: []
+    products:
+      - GFAP_Astrocyte
+    rate_type: MA
+    rate_parameters:
+      - k_GFAP_syn
+
+  - name: GFAPUpregulation_by_A1
+    reactants: []
+    products:
+      - GFAP_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_GFAP_A1 * ASTROCYTE_A1_Astrocyte"
+    rate_parameters:
+      - k_GFAP_A1
+
+  - name: GFAPDegradation
+    reactants:
+      - GFAP_Astrocyte
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_GFAP_deg
+
+  - name: EAAT2Synthesis_Basal
+    reactants: []
+    products:
+      - EAAT2_Astrocyte
+    rate_type: MA
+    rate_parameters:
+      - k_EAAT2_syn
+
+  - name: EAAT2Loss_by_A1
+    reactants:
+      - EAAT2_Astrocyte
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_EAAT2_loss_A1 * EAAT2_Astrocyte * ASTROCYTE_A1_Astrocyte"
+    rate_parameters:
+      - k_EAAT2_loss_A1
+
+  - name: EAAT2Recovery_by_A2
+    reactants: []
+    products:
+      - EAAT2_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_EAAT2_recovery_A2 * ASTROCYTE_A2_Astrocyte"
+    rate_parameters:
+      - k_EAAT2_recovery_A2
+
+  - name: GlutamateRelease_by_A1
+    reactants: []
+    products:
+      - glutamate_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_glu_release_A1 * ASTROCYTE_A1_Astrocyte"
+    rate_parameters:
+      - k_glu_release_A1
+
+  - name: GlutamateUptake_by_EAAT2
+    reactants:
+      - glutamate_BrainISF
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "Vmax_glu_uptake * (EAAT2_Astrocyte / EAAT2_ref_Astrocyte) * (ASTROCYTE_resting_Astrocyte + alpha_A2_uptake * ASTROCYTE_A2_Astrocyte) * (glutamate_BrainISF / V_BrainISF) / (Km_glu_uptake + (glutamate_BrainISF / V_BrainISF))"
+    rate_parameters:
+      - Vmax_glu_uptake
+      - Km_glu_uptake
+      - EAAT2_ref_Astrocyte
+      - alpha_A2_uptake
+      - V_BrainISF
+
+  - name: GlutamateClearance_Bulk
+    reactants:
+      - glutamate_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_glu_clear
+
+  - name: S100BSynthesis_by_A1
+    reactants: []
+    products:
+      - S100B_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_S100B_syn_A1 * ASTROCYTE_A1_Astrocyte"
+    rate_parameters:
+      - k_S100B_syn_A1
+
+  - name: S100BSecretion
+    reactants:
+      - S100B_Astrocyte
+    products:
+      - S100B_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_S100B_secretion * S100B_Astrocyte"
+    rate_parameters:
+      - k_S100B_secretion
+
+  - name: S100BDegradation_BrainISF
+    reactants:
+      - S100B_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_S100B_deg
+
+  - name: S100BFeedback_RestingToA1
+    reactants:
+      - ASTROCYTE_resting_Astrocyte
+    products:
+      - ASTROCYTE_A1_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_S100B_A1_feedback * ASTROCYTE_resting_Astrocyte * (S100B_BrainISF / (Ki_S100B_feedback + S100B_BrainISF))"
+    rate_parameters:
+      - k_S100B_A1_feedback
+      - Ki_S100B_feedback
+
+  - name: AQP4Synthesis_Basal
+    reactants: []
+    products:
+      - AQP4_Astrocyte
+    rate_type: MA
+    rate_parameters:
+      - k_AQP4_syn
+
+  - name: AQP4Loss_by_A1
+    reactants:
+      - AQP4_Astrocyte
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_AQP4_loss_A1 * AQP4_Astrocyte * ASTROCYTE_A1_Astrocyte"
+    rate_parameters:
+      - k_AQP4_loss_A1
+
+  - name: AQP4Recovery_by_A2
+    reactants: []
+    products:
+      - AQP4_Astrocyte
+    rate_type: custom_conc_per_time
+    rate_equation: "k_AQP4_recovery_A2 * ASTROCYTE_A2_Astrocyte"
+    rate_parameters:
+      - k_AQP4_recovery_A2
+
+  - name: GlymphaticClearance_AB42_by_AQP4
+    reactants:
+      - AB42_BrainISF
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_glymph_AB42 * (AQP4_Astrocyte / AQP4_ref_Astrocyte) * (AB42_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_glymph_AB42
+      - AQP4_ref_Astrocyte
+      - V_BrainISF
+
+  - name: S100BBinding_AB42
+    reactants:
+      - S100B_BrainISF
+      - AB42_BrainISF
+    products:
+      - S100B_AB42_complex_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_on_S100B_AB42 * (S100B_BrainISF / V_BrainISF) * (AB42_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_on_S100B_AB42
+      - V_BrainISF
+
+  - name: S100BUnbinding_AB42
+    reactants:
+      - S100B_AB42_complex_BrainISF
+    products:
+      - S100B_BrainISF
+      - AB42_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_off_S100B_AB42
+
+  - name: S100B_AB42_ComplexClearance
+    reactants:
+      - S100B_AB42_complex_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_S100B_AB42_clear
+
+parameters:
+  - name: k_resting_birth_ast
+    value: 0.003
+    units: cell_equiv/day
+    confidence: assumed
+    source: "Tier-2 astrocyte occupancy closure"
+  - name: k_resting_turnover_ast
+    value: 0.003
+    units: 1/day
+    confidence: assumed
+    source: "Tier-2 astrocyte occupancy closure"
+  - name: k_A1_turnover_ast
+    value: 0.01
+    units: 1/day
+    confidence: estimated
+    source: "Neuroinflammation strategy (reactive glia turnover scale)"
+  - name: k_A2_turnover_ast
+    value: 0.006
+    units: 1/day
+    confidence: estimated
+    source: "Neuroinflammation strategy (reactive glia turnover scale)"
+  - name: k_resting_to_A1
+    value: 0.015
+    units: 1/day
+    confidence: estimated
+    source: "strategy_neuroinflammation: Liddelow-inspired A1 induction"
+  - name: K_TNFA_A1
+    value: 0.1e-9
+    units: mol
+    confidence: estimated
+    source: "strategy_neuroinflammation"
+  - name: K_IL1B_A1
+    value: 0.05e-9
+    units: mol
+    confidence: estimated
+    source: "strategy_neuroinflammation"
+  - name: K_C1Q_A1
+    value: 5.0e-9
+    units: mol
+    confidence: estimated
+    source: "strategy_neuroinflammation"
+  - name: k_resting_to_A2
+    value: 0.01
+    units: 1/day
+    confidence: estimated
+    source: "strategy_neuroinflammation (A2 repair bias)"
+  - name: K_IL10_A2
+    value: 0.05e-9
+    units: mol
+    confidence: estimated
+    source: "strategy_neuroinflammation"
+  - name: K_TGFB_A2
+    value: 0.1e-9
+    units: mol
+    confidence: estimated
+    source: "strategy_neuroinflammation"
+  - name: k_A1_to_resting
+    value: 0.006
+    units: 1/day
+    confidence: estimated
+    source: "Anti-inflammatory resolution assumption"
+  - name: K_IL10_resolve_ast
+    value: 0.05e-9
+    units: mol
+    confidence: estimated
+    source: "Neuroinflammation IL10 resolution midpoint"
+  - name: k_A2_to_resting_ast
+    value: 0.008
+    units: 1/day
+    confidence: assumed
+    source: "Tier-2 closure"
+  - name: k_A1_to_A2
+    value: 0.004
+    units: 1/day
+    confidence: estimated
+    source: "TGFB-driven phenotype recovery assumption"
+  - name: K_TGFB_A1A2
+    value: 0.1e-9
+    units: mol
+    confidence: estimated
+    source: "Neuroinflammation strategy scaling"
+  - name: k_A2_to_A1
+    value: 0.003
+    units: 1/day
+    confidence: estimated
+    source: "TNFA pressure relapses A2->A1 assumption"
+  - name: K_TNFA_A2A1
+    value: 0.1e-9
+    units: mol
+    confidence: estimated
+    source: "Neuroinflammation strategy scaling"
+  - name: k_GFAP_syn
+    value: 0.01e-9
+    units: mol/day
+    confidence: estimated
+    source: "GFAP baseline turnover assumption"
+  - name: k_GFAP_A1
+    value: 0.08e-9
+    units: mol/day
+    confidence: estimated
+    source: "Reactive astrogliosis marker upregulation"
+  - name: k_GFAP_deg
+    value: 0.07
+    units: 1/day
+    confidence: estimated
+    source: "Protein turnover placeholder"
+  - name: k_EAAT2_syn
+    value: 0.03e-9
+    units: mol/day
+    confidence: estimated
+    source: "EAAT2 baseline maintenance"
+  - name: k_EAAT2_loss_A1
+    value: 0.15
+    units: 1/day
+    confidence: estimated
+    source: "A1-associated EAAT2 downregulation motif"
+  - name: k_EAAT2_recovery_A2
+    value: 0.02e-9
+    units: mol/day
+    confidence: assumed
+    source: "A2 restorative assumption"
+  - name: k_glu_release_A1
+    value: 0.04e-9
+    units: mol/day
+    confidence: estimated
+    source: "Astrocytic glutamate dysregulation motif"
+  - name: Vmax_glu_uptake
+    value: 0.5e-9
+    units: mol/day
+    confidence: estimated
+    source: "strategy_neuroinflammation glutamate uptake motif"
+  - name: Km_glu_uptake
+    value: 2.0e-9
+    units: mol
+    confidence: estimated
+    source: "Tier-2 glutamate uptake midpoint"
+  - name: EAAT2_ref_Astrocyte
+    value: 1.2e-9
+    units: mol
+    confidence: assumed
+    source: "Reference EAAT2 normalization constant"
+  - name: alpha_A2_uptake
+    value: 0.8
+    units: dimensionless
+    confidence: assumed
+    source: "A2-enhanced uptake scaling"
+  - name: k_glu_clear
+    value: 0.2
+    units: 1/day
+    confidence: assumed
+    source: "Bulk dilution/other clearance sink"
+  - name: k_S100B_syn_A1
+    value: 0.05e-9
+    units: mol/day
+    confidence: estimated
+    source: "Reactive astrocyte S100B production motif"
+  - name: k_S100B_secretion
+    value: 0.4
+    units: 1/day
+    confidence: estimated
+    source: "Astrocyte-to-ISF secretion assumption"
+  - name: k_S100B_deg
+    value: 1.0
+    units: 1/day
+    confidence: estimated
+    source: "ISF protein turnover scale"
+  - name: k_S100B_A1_feedback
+    value: 0.008
+    units: 1/day
+    confidence: estimated
+    source: "S100B pro-inflammatory feedback abstraction"
+  - name: Ki_S100B_feedback
+    value: 0.05848035476425734e-9
+    units: mol
+    confidence: estimated
+    source: "data/parameters/module/neuroinflammation_astrocyte.json (Ki geometric mean)"
+  - name: k_AQP4_syn
+    value: 0.04e-9
+    units: mol/day
+    confidence: assumed
+    source: "AQP4 baseline maintenance"
+  - name: k_AQP4_loss_A1
+    value: 0.08
+    units: 1/day
+    confidence: estimated
+    source: "Reactive astrogliosis-associated AQP4 mislocalization abstraction"
+  - name: k_AQP4_recovery_A2
+    value: 0.02e-9
+    units: mol/day
+    confidence: assumed
+    source: "A2 restorative assumption"
+  - name: k_glymph_AB42
+    value: 0.008101366791213009
+    units: 1/day
+    confidence: estimated
+    source: "Elbert parameter motif (Q_glymph scale)"
+  - name: AQP4_ref_Astrocyte
+    value: 1.0e-9
+    units: mol
+    confidence: assumed
+    source: "Reference AQP4 normalization constant"
+  - name: k_on_S100B_AB42
+    value: 0.02
+    units: L/(mol*day)
+    confidence: estimated
+    source: "Tier-2 binding placeholder informed by extracted affinity constraints"
+  - name: k_off_S100B_AB42
+    value: 0.0282842712474619
+    units: 1/day
+    confidence: estimated
+    source: "k_off = Kd * k_on; Kd from neuroinflammation_astrocyte parameter extraction"
+  - name: k_S100B_AB42_clear
+    value: 0.2
+    units: 1/day
+    confidence: assumed
+    source: "Complex clearance closure"
+  - name: V_BrainISF
+    value: 0.25
+    units: L
+    confidence: assumed
+    source: "Compartment definition"
+
+evidence:
+  - source: "plan/strategy_neuroinflammation.md"
+    supports: "A1/A2 astrocyte transition topology and cytokine-driven rate-law motifs"
+  - source: "../Elbert_Esguerra_model_v2026b/antimony_models/*_parameters.txt"
+    supports: "Q_glymph scale used for AQP4-modulated glymphatic AB42 clearance term"
+  - pmid: "28602351"
+    source: "Liddelow et al. 2017"
+    supports: "A1 neurotoxic astrocyte concept and microglia-driven induction context"

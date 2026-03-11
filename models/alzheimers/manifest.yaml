@@ -1,0 +1,79 @@
+name: "Alzheimer's Disease"
+disease_id: "MONDO:0004975"
+description: "Multi-scale ODE model of Alzheimer's disease pathophysiology spanning amyloid cascade, tau pathology, neuroinflammation, synaptic/neuronal dysfunction, vascular, metabolic, and genetic modules"
+modules:
+  - amyloid_aggregation.yaml
+  - amyloid_clearance.yaml
+  - amyloid_production.yaml
+  - amyloid_transport.yaml
+  - apoe_genetics.yaml
+  - apoptosis.yaml
+  - autophagy.yaml
+  - bbb_integrity.yaml
+  - calcium_homeostasis.yaml
+  - circadian_rhythm.yaml
+  - complement_cascade.yaml
+  - epigenetics.yaml
+  - exercise_neuroprotection.yaml
+  - gut_brain_axis.yaml
+  - insulin_signaling.yaml
+  - lipid_metabolism.yaml
+  - metal_homeostasis.yaml
+  - neuroinflammation_astrocyte.yaml
+  - neuroinflammation_microglia.yaml
+  - oxidative_stress.yaml
+  - peripheral_immune.yaml
+  - synaptic_dysfunction.yaml
+  - tau_aggregation.yaml
+  - tau_phosphorylation.yaml
+  - vascular_caa.yaml
+shared_compartments:
+  - name: BrainISF
+    volume_value: 0.25
+    volume_units: L
+  - name: CSF
+    volume_value: 0.14
+    volume_units: L
+  - name: Plasma
+    volume_value: 3.0
+    volume_units: L
+  - name: Neuron
+    volume_value: 0.5
+    volume_units: L
+  - name: Microglia
+    volume_value: 0.01
+    volume_units: L
+  - name: Astrocyte
+    volume_value: 0.05
+    volume_units: L
+  - name: BBB
+    volume_value: 0.001
+    volume_units: L
+  - name: Synapse
+    volume_value: 0.001
+    volume_units: L
+  - name: ER
+    volume_value: 0.01
+    volume_units: L
+  - name: Mitochondria
+    volume_value: 0.01
+    volume_units: L
+  - name: Perivascular
+    volume_value: 0.01
+    volume_units: L
+  - name: BrainParenchyma
+    volume_value: 1.0
+    volume_units: L
+  - name: Gut
+    volume_value: 1.0
+    volume_units: L
+shared_parameters:
+  - name: age
+    value: 70
+    units: years
+  - name: APOE_genotype
+    value: 0
+    notes: "0=e3/e3, 1=e3/e4, 2=e4/e4"
+  - name: brain_weight_kg
+    value: 1.4
+    units: kg

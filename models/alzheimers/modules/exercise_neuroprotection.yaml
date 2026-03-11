@@ -1,0 +1,269 @@
+name: exercise_neuroprotection
+description: >
+  Tier 4 exploratory exercise-neuroprotection module for Alzheimer's disease ODE
+  models. Encodes exercise-driven IRISIN/lactate signaling, neuronal
+  PGC1alpha-FNDC5 coupling, exercise-associated IL6 anti-inflammatory routing,
+  and BDNF upregulation as neuroprotective input.
+mechanism: "Exercise-Driven Neuroprotection"
+notes: >
+  Tier: 4 (exploratory). Muscle-origin exercise signals are represented as
+  source terms into Plasma/BrainISF due to compartment constraints.
+
+compartments:
+  - name: Neuron
+    volume_parameter: V_Neuron
+    volume_value: 0.0005
+    volume_units: L
+    notes: "Neuronal intracellular signaling compartment."
+  - name: Plasma
+    volume_parameter: V_Plasma
+    volume_value: 3.0
+    volume_units: L
+    notes: "Peripheral circulation receiving exercise myokine signals."
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.25
+    volume_units: L
+    notes: "Brain interstitial signaling space coupling peripheral and neuronal cues."
+
+species:
+  - name: IRISIN_Plasma
+    initial_amount: 6.0e-10
+    units: mol
+  - name: IRISIN_BrainISF
+    initial_amount: 2.0e-10
+    units: mol
+  - name: lactate_BrainISF
+    initial_amount: 5.0e-7
+    units: mol
+  - name: PGC1alpha_Neuron
+    initial_amount: 2.0e-10
+    units: mol
+  - name: FNDC5_Neuron
+    initial_amount: 3.0e-10
+    units: mol
+  - name: BDNF_exercise_Neuron
+    initial_amount: 2.5e-10
+    units: mol
+  - name: IL6_exercise_Plasma
+    initial_amount: 1.5e-10
+    units: mol
+  - name: IL6_exercise_Neuron
+    initial_amount: 8.0e-11
+    units: mol
+  - name: AntiInflammatoryTone_BrainISF
+    initial_amount: 1.0e-10
+    units: mol
+
+reactions:
+  - name: IRISIN_Exercise_Release_to_Plasma
+    reactants: []
+    products:
+      - IRISIN_Plasma
+    rate_type: MA
+    rate_parameters:
+      - k_irisin_release
+    notes: "Exercise-dependent systemic irisin input (muscle surrogate)."
+
+  - name: IRISIN_Transport_Plasma_to_BrainISF
+    reactants:
+      - IRISIN_Plasma
+    products:
+      - IRISIN_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_irisin_plasma_to_isf
+
+  - name: Lactate_Exercise_Input_to_BrainISF
+    reactants: []
+    products:
+      - lactate_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_lactate_input
+    notes: "Exercise-associated lactate rise in brain ISF as signaling cue."
+
+  - name: PGC1alpha_Activation_by_Irisin_Lactate
+    reactants: []
+    products:
+      - PGC1alpha_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_pgc1a_act * exercise_drive * ((IRISIN_BrainISF / V_BrainISF) / (K_irisin_pgc1a + (IRISIN_BrainISF / V_BrainISF))) * ((lactate_BrainISF / V_BrainISF) / (K_lactate_pgc1a + (lactate_BrainISF / V_BrainISF)))"
+    rate_parameters:
+      - k_pgc1a_act
+      - exercise_drive
+      - K_irisin_pgc1a
+      - K_lactate_pgc1a
+      - V_BrainISF
+
+  - name: PGC1alpha_Turnover
+    reactants:
+      - PGC1alpha_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_pgc1a_deg
+
+  - name: FNDC5_Induction_by_PGC1alpha
+    reactants: []
+    products:
+      - FNDC5_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_fndc5_ind * ((PGC1alpha_Neuron / V_Neuron) / (K_pgc1a_fndc5 + (PGC1alpha_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_fndc5_ind
+      - K_pgc1a_fndc5
+      - V_Neuron
+
+  - name: IL6_Exercise_Release_to_Plasma
+    reactants: []
+    products:
+      - IL6_exercise_Plasma
+    rate_type: MA
+    rate_parameters:
+      - k_il6_release
+    notes: "Transient exercise-linked IL6 release (myokine phenotype)."
+
+  - name: IL6_Transport_Plasma_to_Neuron
+    reactants:
+      - IL6_exercise_Plasma
+    products:
+      - IL6_exercise_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_il6_plasma_to_neuron
+
+  - name: IL6_Resolution_to_AntiInflammatoryTone
+    reactants:
+      - IL6_exercise_Neuron
+    products:
+      - AntiInflammatoryTone_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_il6_resolution
+    notes: "Represents IL6-class switching toward anti-inflammatory signaling context."
+
+  - name: BDNF_Upregulation_by_FNDC5_Irisin_AntiInflammatoryTone
+    reactants: []
+    products:
+      - BDNF_exercise_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_bdnf_ex_prod * ((FNDC5_Neuron / V_Neuron) / (K_fndc5_bdnf + (FNDC5_Neuron / V_Neuron))) * (1 + alpha_irisin_bdnf * (IRISIN_BrainISF / V_BrainISF)) * (1 + alpha_antiinflam_bdnf * (AntiInflammatoryTone_BrainISF / V_BrainISF))"
+    rate_parameters:
+      - k_bdnf_ex_prod
+      - K_fndc5_bdnf
+      - alpha_irisin_bdnf
+      - alpha_antiinflam_bdnf
+      - V_Neuron
+      - V_BrainISF
+
+parameters:
+  - name: k_irisin_release
+    value: 2.0e-11
+    units: mol/hr
+    confidence: assumed
+    source: "Exercise physiology prior (exploratory placeholder)"
+
+  - name: k_irisin_plasma_to_isf
+    value: 0.12
+    units: 1/hr
+    confidence: estimated
+    source: "Cross-compartment peptide signaling timescale"
+
+  - name: k_lactate_input
+    value: 8.0e-9
+    units: mol/hr
+    confidence: assumed
+    source: "Exercise-associated lactate surge proxy"
+
+  - name: k_pgc1a_act
+    value: 6.0e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "Exercise-activated PGC1alpha pathway scaling"
+
+  - name: exercise_drive
+    value: 1.0
+    units: dimensionless
+    confidence: assumed
+    source: "Normalized exercise intensity/exposure"
+
+  - name: K_irisin_pgc1a
+    value: 1.0e-9
+    units: mol/L
+    confidence: assumed
+    source: "Half-activation scale for irisin to neuronal PGC1alpha"
+
+  - name: K_lactate_pgc1a
+    value: 8.0e-6
+    units: mol/L
+    confidence: assumed
+    source: "Half-activation scale for lactate signaling"
+
+  - name: k_pgc1a_deg
+    value: 0.08
+    units: 1/hr
+    confidence: estimated
+    source: "Protein turnover timescale"
+
+  - name: k_fndc5_ind
+    value: 4.0e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "PGC1alpha-dependent FNDC5 transcriptional induction proxy"
+
+  - name: K_pgc1a_fndc5
+    value: 6.0e-10
+    units: mol/L
+    confidence: assumed
+    source: "Half-activation scale for PGC1alpha to FNDC5"
+
+  - name: k_il6_release
+    value: 7.0e-12
+    units: mol/hr
+    confidence: assumed
+    source: "Exercise-associated IL6 release proxy"
+
+  - name: k_il6_plasma_to_neuron
+    value: 0.09
+    units: 1/hr
+    confidence: estimated
+    source: "Peripheral-to-neural cytokine coupling timescale"
+
+  - name: k_il6_resolution
+    value: 0.22
+    units: 1/hr
+    confidence: assumed
+    source: "IL6 transient resolution toward anti-inflammatory state"
+
+  - name: k_bdnf_ex_prod
+    value: 3.5e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "Exercise-BDNF induction magnitude"
+
+  - name: K_fndc5_bdnf
+    value: 7.0e-10
+    units: mol/L
+    confidence: assumed
+    source: "Half-activation scale for FNDC5-driven BDNF induction"
+
+  - name: alpha_irisin_bdnf
+    value: 0.6
+    units: L/mol
+    confidence: assumed
+    source: "Irisin amplification of BDNF transcription"
+
+  - name: alpha_antiinflam_bdnf
+    value: 0.4
+    units: L/mol
+    confidence: assumed
+    source: "Anti-inflammatory facilitation of BDNF signaling"
+
+evidence:
+  - source: "Wrann et al., Cell Metabolism (exercise-PGC1alpha/FNDC5/BDNF axis)"
+    supports: "PGC1alpha-FNDC5 mediated exercise linkage to BDNF"
+  - source: "Exercise immunometabolism literature"
+    supports: "Transient IL6 myokine signaling with anti-inflammatory downstream effects"
+  - source: "Exercise-neurobiology literature"
+    supports: "Lactate and irisin as neuromodulatory exercise signals"

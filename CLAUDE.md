@@ -69,6 +69,12 @@ src/antimony_bootstrap/
 models/alzheimers/    # Disease-specific modules, parameters, and generated output
 ```
 
+## MCP Tools
+
+The **biomodels-rag** MCP server provides direct access to the BioModels database:
+- `biomodels_search` — Search BioModels by keyword (e.g., "tau phosphorylation", "GSK3beta"). Always use this first when looking for reference models or parameter sources.
+- `biomodels_get_antimony` — Retrieve a model's Antimony code by BioModels ID (e.g., `BIOMD0000000542`). Use to inspect species, reactions, rate laws, and parameter values from published models.
+
 ## Skills
 
 Claude Code skills in `.claude/skills/`:

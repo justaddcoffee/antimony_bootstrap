@@ -1,0 +1,584 @@
+name: tau_phosphorylation
+description: >
+  Tier 1 tau phosphorylation control module for Alzheimer's disease ODE models.
+  Encodes site-specific tau phosphorylation (AT8, AT180, PHF1), PP2A-mediated
+  dephosphorylation, PIN1-mediated phospho-isomerization, and kinase/phosphatase
+  activation-inhibition control loops in neurons.
+mechanism: "Tau Pathology"
+notes: "Tier: 1 (core). Single-compartment neuronal phosphorylation/dephosphorylation cycle aligned to Elbert naming style."
+
+compartments:
+  - name: Neuron
+    volume_parameter: V_Neuron
+    volume_value: 0.5
+    volume_units: L
+    notes: "Intracellular neuronal compartment for tau phosphorylation dynamics."
+
+species:
+  - name: TAU_Neuron
+    initial_amount: 1.0e-6
+    units: mol
+  - name: PTAU_AT8_Neuron
+    initial_amount: 2.0e-8
+    units: mol
+  - name: PTAU_AT180_Neuron
+    initial_amount: 2.0e-8
+    units: mol
+  - name: PTAU_PHF1_Neuron
+    initial_amount: 1.0e-8
+    units: mol
+  - name: PTAU_MULTI_Neuron
+    initial_amount: 5.0e-9
+    units: mol
+  - name: GSK3B_active_Neuron
+    initial_amount: 7.5e-8
+    units: mol
+  - name: GSK3B_inactive_Neuron
+    initial_amount: 1.75e-7
+    units: mol
+  - name: CDK5_active_Neuron
+    initial_amount: 5.0e-8
+    units: mol
+  - name: CDK5_inactive_Neuron
+    initial_amount: 2.0e-7
+    units: mol
+  - name: PP2A_active_Neuron
+    initial_amount: 1.0e-7
+    units: mol
+  - name: PP2A_inactive_Neuron
+    initial_amount: 1.0e-7
+    units: mol
+  - name: PIN1_active_Neuron
+    initial_amount: 6.0e-8
+    units: mol
+  - name: PIN1_inactive_Neuron
+    initial_amount: 9.0e-8
+    units: mol
+  - name: AKT_active_Neuron
+    initial_amount: 1.0e-7
+    units: mol
+  - name: P25_Neuron
+    initial_amount: 8.0e-8
+    units: mol
+  - name: CIP2A_Neuron
+    initial_amount: 5.0e-8
+    units: mol
+  - name: ROS_Neuron
+    initial_amount: 5.0e-8
+    units: mol
+
+reactions:
+  - name: TauPhosphorylation_AT8_by_GSK3B
+    reactants:
+      - TAU_Neuron
+    products:
+      - PTAU_AT8_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_GSK3B_AT8 * (TAU_Neuron / V_Neuron) / (Km_GSK3B_AT8 + (TAU_Neuron / V_Neuron))) * (GSK3B_active_Neuron / GSK3B_ref)"
+    rate_parameters:
+      - Vmax_GSK3B_AT8
+      - Km_GSK3B_AT8
+      - GSK3B_ref
+      - V_Neuron
+
+  - name: TauPhosphorylation_AT180_by_CDK5
+    reactants:
+      - TAU_Neuron
+    products:
+      - PTAU_AT180_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_CDK5_AT180 * (TAU_Neuron / V_Neuron) / (Km_CDK5_AT180 + (TAU_Neuron / V_Neuron))) * (CDK5_active_Neuron / CDK5_ref)"
+    rate_parameters:
+      - Vmax_CDK5_AT180
+      - Km_CDK5_AT180
+      - CDK5_ref
+      - V_Neuron
+
+  - name: TauPhosphorylation_PHF1_from_AT8_by_GSK3B
+    reactants:
+      - PTAU_AT8_Neuron
+    products:
+      - PTAU_PHF1_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_GSK3B_PHF1 * (PTAU_AT8_Neuron / V_Neuron) / (Km_GSK3B_PHF1 + (PTAU_AT8_Neuron / V_Neuron))) * (GSK3B_active_Neuron / GSK3B_ref)"
+    rate_parameters:
+      - Vmax_GSK3B_PHF1
+      - Km_GSK3B_PHF1
+      - GSK3B_ref
+      - V_Neuron
+
+  - name: TauPhosphorylation_PHF1_from_AT180_by_CDK5
+    reactants:
+      - PTAU_AT180_Neuron
+    products:
+      - PTAU_PHF1_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_CDK5_PHF1 * (PTAU_AT180_Neuron / V_Neuron) / (Km_CDK5_PHF1 + (PTAU_AT180_Neuron / V_Neuron))) * (CDK5_active_Neuron / CDK5_ref)"
+    rate_parameters:
+      - Vmax_CDK5_PHF1
+      - Km_CDK5_PHF1
+      - CDK5_ref
+      - V_Neuron
+
+  - name: TauPhosphorylation_AT8AT180_from_AT8_by_CDK5
+    reactants:
+      - PTAU_AT8_Neuron
+    products:
+      - PTAU_MULTI_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_CDK5_AT8AT180 * (PTAU_AT8_Neuron / V_Neuron) / (Km_CDK5_AT8AT180 + (PTAU_AT8_Neuron / V_Neuron))) * (CDK5_active_Neuron / CDK5_ref)"
+    rate_parameters:
+      - Vmax_CDK5_AT8AT180
+      - Km_CDK5_AT8AT180
+      - CDK5_ref
+      - V_Neuron
+
+  - name: TauPhosphorylation_AT8AT180_from_AT180_by_GSK3B
+    reactants:
+      - PTAU_AT180_Neuron
+    products:
+      - PTAU_MULTI_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_GSK3B_AT8AT180 * (PTAU_AT180_Neuron / V_Neuron) / (Km_GSK3B_AT8AT180 + (PTAU_AT180_Neuron / V_Neuron))) * (GSK3B_active_Neuron / GSK3B_ref)"
+    rate_parameters:
+      - Vmax_GSK3B_AT8AT180
+      - Km_GSK3B_AT8AT180
+      - GSK3B_ref
+      - V_Neuron
+
+  - name: TauHyperphosphorylation_Multisite_by_GSK3B
+    reactants:
+      - PTAU_PHF1_Neuron
+    products:
+      - PTAU_MULTI_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_GSK3B_multisite * (PTAU_PHF1_Neuron / V_Neuron) / (Km_GSK3B_multisite + (PTAU_PHF1_Neuron / V_Neuron))) * (GSK3B_active_Neuron / GSK3B_ref)"
+    rate_parameters:
+      - Vmax_GSK3B_multisite
+      - Km_GSK3B_multisite
+      - GSK3B_ref
+      - V_Neuron
+
+  - name: TauDephosphorylation_AT8_by_PP2A
+    reactants:
+      - PTAU_AT8_Neuron
+    products:
+      - TAU_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_PP2A_AT8 * (PTAU_AT8_Neuron / V_Neuron) / (Km_PP2A_AT8 + (PTAU_AT8_Neuron / V_Neuron))) * (PP2A_active_Neuron / PP2A_ref)"
+    rate_parameters:
+      - Vmax_PP2A_AT8
+      - Km_PP2A_AT8
+      - PP2A_ref
+      - V_Neuron
+
+  - name: TauDephosphorylation_AT180_by_PP2A
+    reactants:
+      - PTAU_AT180_Neuron
+    products:
+      - TAU_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_PP2A_AT180 * (PTAU_AT180_Neuron / V_Neuron) / (Km_PP2A_AT180 + (PTAU_AT180_Neuron / V_Neuron))) * (PP2A_active_Neuron / PP2A_ref)"
+    rate_parameters:
+      - Vmax_PP2A_AT180
+      - Km_PP2A_AT180
+      - PP2A_ref
+      - V_Neuron
+
+  - name: TauDephosphorylation_PHF1_to_AT8_by_PP2A
+    reactants:
+      - PTAU_PHF1_Neuron
+    products:
+      - PTAU_AT8_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_PP2A_PHF1_AT8 * (PTAU_PHF1_Neuron / V_Neuron) / (Km_PP2A_PHF1_AT8 + (PTAU_PHF1_Neuron / V_Neuron))) * (PP2A_active_Neuron / PP2A_ref)"
+    rate_parameters:
+      - Vmax_PP2A_PHF1_AT8
+      - Km_PP2A_PHF1_AT8
+      - PP2A_ref
+      - V_Neuron
+
+  - name: TauDephosphorylation_PHF1_to_AT180_by_PP2A
+    reactants:
+      - PTAU_PHF1_Neuron
+    products:
+      - PTAU_AT180_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_PP2A_PHF1_AT180 * (PTAU_PHF1_Neuron / V_Neuron) / (Km_PP2A_PHF1_AT180 + (PTAU_PHF1_Neuron / V_Neuron))) * (PP2A_active_Neuron / PP2A_ref)"
+    rate_parameters:
+      - Vmax_PP2A_PHF1_AT180
+      - Km_PP2A_PHF1_AT180
+      - PP2A_ref
+      - V_Neuron
+
+  - name: TauDephosphorylation_MULTI_by_PP2A
+    reactants:
+      - PTAU_MULTI_Neuron
+    products:
+      - PTAU_PHF1_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_PP2A_multi * (PTAU_MULTI_Neuron / V_Neuron) / (Km_PP2A_multi + (PTAU_MULTI_Neuron / V_Neuron))) * (PP2A_active_Neuron / PP2A_ref)"
+    rate_parameters:
+      - Vmax_PP2A_multi
+      - Km_PP2A_multi
+      - PP2A_ref
+      - V_Neuron
+
+  - name: PTAU_Isomerization_AT8_to_AT180_by_PIN1
+    reactants:
+      - PTAU_AT8_Neuron
+    products:
+      - PTAU_AT180_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_PIN1_iso_AT8_to_AT180 * (PTAU_AT8_Neuron / V_Neuron) * (PIN1_active_Neuron / PIN1_ref)"
+    rate_parameters:
+      - k_PIN1_iso_AT8_to_AT180
+      - PIN1_ref
+      - V_Neuron
+
+  - name: PTAU_Isomerization_AT180_to_AT8_by_PIN1
+    reactants:
+      - PTAU_AT180_Neuron
+    products:
+      - PTAU_AT8_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_PIN1_iso_AT180_to_AT8 * (PTAU_AT180_Neuron / V_Neuron) * (PIN1_active_Neuron / PIN1_ref)"
+    rate_parameters:
+      - k_PIN1_iso_AT180_to_AT8
+      - PIN1_ref
+      - V_Neuron
+
+  - name: GSK3B_Activation
+    reactants:
+      - GSK3B_inactive_Neuron
+    products:
+      - GSK3B_active_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_GSK3B_act
+
+  - name: GSK3B_Inhibition_by_AKT
+    reactants:
+      - GSK3B_active_Neuron
+      - AKT_active_Neuron
+    products:
+      - GSK3B_inactive_Neuron
+      - AKT_active_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_GSK3B_inact_AKT * (GSK3B_active_Neuron / V_Neuron) * (AKT_active_Neuron / AKT_ref)"
+    rate_parameters:
+      - k_GSK3B_inact_AKT
+      - AKT_ref
+      - V_Neuron
+
+  - name: CDK5_Activation_by_P25
+    reactants:
+      - CDK5_inactive_Neuron
+      - P25_Neuron
+    products:
+      - CDK5_active_Neuron
+      - P25_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_CDK5_act_P25 * (CDK5_inactive_Neuron / V_Neuron) * (P25_Neuron / P25_ref)"
+    rate_parameters:
+      - k_CDK5_act_P25
+      - P25_ref
+      - V_Neuron
+
+  - name: CDK5_Inactivation
+    reactants:
+      - CDK5_active_Neuron
+    products:
+      - CDK5_inactive_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_CDK5_inact
+
+  - name: PP2A_Activation
+    reactants:
+      - PP2A_inactive_Neuron
+    products:
+      - PP2A_active_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_PP2A_act
+
+  - name: PP2A_Inhibition_by_CIP2A
+    reactants:
+      - PP2A_active_Neuron
+      - CIP2A_Neuron
+    products:
+      - PP2A_inactive_Neuron
+      - CIP2A_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_PP2A_inact_CIP2A * (PP2A_active_Neuron / V_Neuron) * (CIP2A_Neuron / CIP2A_ref)"
+    rate_parameters:
+      - k_PP2A_inact_CIP2A
+      - CIP2A_ref
+      - V_Neuron
+
+  - name: PIN1_Activation
+    reactants:
+      - PIN1_inactive_Neuron
+    products:
+      - PIN1_active_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_PIN1_act
+
+  - name: PIN1_OxidativeInactivation_by_ROS
+    reactants:
+      - PIN1_active_Neuron
+      - ROS_Neuron
+    products:
+      - PIN1_inactive_Neuron
+      - ROS_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_PIN1_inact_ROS * (PIN1_active_Neuron / V_Neuron) * (ROS_Neuron / ROS_ref)"
+    rate_parameters:
+      - k_PIN1_inact_ROS
+      - ROS_ref
+      - V_Neuron
+
+parameters:
+  - name: Vmax_GSK3B_AT8
+    value: 3.0e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (GSK3B phosphorylation range)"
+  - name: Km_GSK3B_AT8
+    value: 1.0e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_tau_pathology.md (Km_GSK3b 2-20 uM)"
+
+  - name: Vmax_CDK5_AT180
+    value: 2.0e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (CDK5 phosphorylation range)"
+  - name: Km_CDK5_AT180
+    value: 1.5e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_tau_pathology.md (Km_CDK5 5-30 uM)"
+
+  - name: Vmax_GSK3B_PHF1
+    value: 2.0e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+  - name: Km_GSK3B_PHF1
+    value: 1.2e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+
+  - name: Vmax_CDK5_PHF1
+    value: 1.2e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+  - name: Km_CDK5_PHF1
+    value: 1.5e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+
+  - name: Vmax_CDK5_AT8AT180
+    value: 1.5e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+  - name: Km_CDK5_AT8AT180
+    value: 1.2e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+
+  - name: Vmax_GSK3B_AT8AT180
+    value: 1.5e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+  - name: Km_GSK3B_AT8AT180
+    value: 1.2e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+
+  - name: Vmax_GSK3B_multisite
+    value: 1.0e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+  - name: Km_GSK3B_multisite
+    value: 1.5e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+
+  - name: Vmax_PP2A_AT8
+    value: 8.0e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (PP2A range, reduced for AD-like state)"
+  - name: Km_PP2A_AT8
+    value: 5.0e-6
+    units: mol/L
+    confidence: estimated
+    source: "strategy_tau_pathology.md (Km_PP2A 1-15 uM)"
+
+  - name: Vmax_PP2A_AT180
+    value: 8.0e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+  - name: Km_PP2A_AT180
+    value: 5.0e-6
+    units: mol/L
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+
+  - name: Vmax_PP2A_PHF1_AT8
+    value: 6.0e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+  - name: Km_PP2A_PHF1_AT8
+    value: 6.0e-6
+    units: mol/L
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+
+  - name: Vmax_PP2A_PHF1_AT180
+    value: 6.0e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+  - name: Km_PP2A_PHF1_AT180
+    value: 6.0e-6
+    units: mol/L
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+
+  - name: Vmax_PP2A_multi
+    value: 4.0e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+  - name: Km_PP2A_multi
+    value: 8.0e-6
+    units: mol/L
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+
+  - name: k_PIN1_iso_AT8_to_AT180
+    value: 0.03
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (PIN1 included as regulator)"
+  - name: k_PIN1_iso_AT180_to_AT8
+    value: 0.02
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+
+  - name: k_GSK3B_act
+    value: 0.04
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (k_GSK3b_act 0.01-0.1 1/hr)"
+  - name: k_GSK3B_inact_AKT
+    value: 0.12
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (k_GSK3b_inact 0.05-0.5 1/hr)"
+
+  - name: k_CDK5_act_P25
+    value: 0.08
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md"
+  - name: k_CDK5_inact
+    value: 0.05
+    units: 1/hr
+    confidence: estimated
+    source: "tier-1 assumption"
+
+  - name: k_PP2A_act
+    value: 0.06
+    units: 1/hr
+    confidence: estimated
+    source: "tier-1 assumption"
+  - name: k_PP2A_inact_CIP2A
+    value: 0.08
+    units: 1/hr
+    confidence: estimated
+    source: "tier-1 assumption"
+
+  - name: k_PIN1_act
+    value: 0.04
+    units: 1/hr
+    confidence: estimated
+    source: "tier-1 assumption"
+  - name: k_PIN1_inact_ROS
+    value: 0.06
+    units: 1/hr
+    confidence: estimated
+    source: "tier-1 assumption"
+
+  - name: V_Neuron
+    value: 0.5
+    units: L
+    confidence: assumed
+    source: "Compartment volume parameter (Neuron)"
+
+  - name: GSK3B_ref
+    value: 7.5e-8
+    units: mol
+    confidence: assumed
+    source: "reference scaling constant"
+  - name: CDK5_ref
+    value: 5.0e-8
+    units: mol
+    confidence: assumed
+    source: "reference scaling constant"
+  - name: PP2A_ref
+    value: 1.0e-7
+    units: mol
+    confidence: assumed
+    source: "reference scaling constant"
+  - name: PIN1_ref
+    value: 6.0e-8
+    units: mol
+    confidence: assumed
+    source: "reference scaling constant"
+  - name: AKT_ref
+    value: 1.0e-7
+    units: mol
+    confidence: assumed
+    source: "reference scaling constant"
+  - name: P25_ref
+    value: 8.0e-8
+    units: mol
+    confidence: assumed
+    source: "reference scaling constant"
+  - name: CIP2A_ref
+    value: 5.0e-8
+    units: mol
+    confidence: assumed
+    source: "reference scaling constant"
+  - name: ROS_ref
+    value: 5.0e-8
+    units: mol
+    confidence: assumed
+    source: "reference scaling constant"
+
+evidence:
+  - source: "plan/strategy_tau_pathology.md"
+    supports: "Tau phosphorylation by GSK3B/CDK5 with PP2A counter-regulation and kinase activation controls"
+  - source: "data/parameters/module/tau_phosphorylation.json"
+    supports: "Tau-focused parameter evidence pool reviewed; no directly reusable kinetic constants for this mechanism"
+  - source: "../Elbert_Esguerra_model_v2026b/antimony_models/"
+    supports: "Compartment/variable naming style and rate-type compatibility with Elbert antimony conventions"

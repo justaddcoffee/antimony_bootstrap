@@ -1,0 +1,317 @@
+name: gut_brain_axis
+description: >
+  Tier 4 exploratory gut-brain axis module for Alzheimer's disease ODE models.
+  Captures SCFA and LPS gut dynamics, permeability-dependent endotoxin spillover,
+  LPS-linked TMAO generation, and vagal-tone-mediated coupling to brain
+  inflammatory drive.
+mechanism: "Neuroinflammation"
+notes: "Tier: 4. Exploratory assumptions with placeholder kinetics linking gut dysbiosis to neuroinflammation."
+
+compartments:
+  - name: Gut
+    volume_parameter: V_Gut
+    volume_value: 1.0
+    volume_units: L
+    notes: "Lumped intestinal lumen and mucosal interface compartment."
+  - name: Plasma
+    volume_parameter: V_Plasma
+    volume_value: 3.0
+    volume_units: L
+    notes: "Peripheral blood compartment for circulating LPS/TMAO signals."
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.25
+    volume_units: L
+    notes: "Brain interstitial compartment receiving inflammation drive from peripheral signals."
+
+species:
+  - name: SCFA_Gut
+    initial_amount: 0.25e-3
+    units: mol
+    notes: "Aggregate short-chain fatty acid pool (acetate+propionate+butyrate surrogate)."
+  - name: LPS_Gut
+    initial_amount: 0.05e-6
+    units: mol
+    notes: "Luminal endotoxin burden from gram-negative dysbiosis."
+  - name: LPS_Plasma
+    initial_amount: 0.01e-9
+    units: mol
+    notes: "Circulating endotoxin pool."
+  - name: TMAO_Plasma
+    initial_amount: 3.0e-6
+    units: mol
+    notes: "Systemic trimethylamine N-oxide pool."
+  - name: gut_permeability_Gut
+    initial_amount: 1.0
+    units: arb
+    notes: "Normalized gut barrier leakiness state (1.0 baseline)."
+  - name: vagal_tone_Gut
+    initial_amount: 1.0
+    units: arb
+    notes: "Normalized vagal anti-inflammatory tone signal (higher is protective)."
+  - name: TNFA_BrainISF
+    initial_amount: 0.01e-9
+    units: mol
+    notes: "Brain inflammatory cytokine coupling output."
+
+reactions:
+  - name: SCFA_Production_Gut
+    reactants: []
+    products:
+      - SCFA_Gut
+    rate_type: MA
+    rate_parameters:
+      - k_scfa_prod
+    notes: Basal microbial SCFA generation in gut.
+
+  - name: SCFA_Clearance_Gut
+    reactants:
+      - SCFA_Gut
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_scfa_clear
+    notes: Net host uptake and local utilization of SCFA.
+
+  - name: LPS_Production_Gut
+    reactants: []
+    products:
+      - LPS_Gut
+    rate_type: MA
+    rate_parameters:
+      - k_lps_prod
+    notes: Basal endotoxin generation from dysbiotic microbial activity.
+
+  - name: LPS_Translocation_Gut_to_Plasma
+    reactants:
+      - LPS_Gut
+    products:
+      - LPS_Plasma
+    rate_type: custom_conc_per_time
+    rate_equation: "k_lps_transloc * (LPS_Gut / V_Gut) * gut_permeability_Gut * (1 / (1 + (SCFA_Gut / V_Gut) / K_SCFA_barrier))"
+    rate_parameters:
+      - k_lps_transloc
+      - K_SCFA_barrier
+      - V_Gut
+    notes: Barrier leakiness promotes LPS entry; SCFA opposes translocation.
+
+  - name: LPS_Clearance_Plasma
+    reactants:
+      - LPS_Plasma
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_lps_clear_plasma
+    notes: Hepatic/immune endotoxin neutralization and clearance.
+
+  - name: TMAO_Production_Plasma
+    reactants: []
+    products:
+      - TMAO_Plasma
+    rate_type: custom_conc_per_time
+    rate_equation: "k_tmao_prod * ((LPS_Plasma / V_Plasma) / (K_LPS_tmao + (LPS_Plasma / V_Plasma)))"
+    rate_parameters:
+      - k_tmao_prod
+      - K_LPS_tmao
+      - V_Plasma
+    notes: Dysbiosis-related host-microbial metabolism represented by LPS-gated TMAO production.
+
+  - name: TMAO_Clearance_Plasma
+    reactants:
+      - TMAO_Plasma
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_tmao_clear
+    notes: Renal and systemic TMAO elimination.
+
+  - name: GutPermeability_Remodeling
+    reactants: []
+    products:
+      - gut_permeability_Gut
+    rate_type: custom_conc_per_time
+    rate_equation: "k_perm_leak * ((LPS_Gut / V_Gut) / (K_LPS_perm + (LPS_Gut / V_Gut))) - k_perm_repair * ((SCFA_Gut / V_Gut) / (K_SCFA_perm + (SCFA_Gut / V_Gut))) * gut_permeability_Gut"
+    rate_parameters:
+      - k_perm_leak
+      - K_LPS_perm
+      - k_perm_repair
+      - K_SCFA_perm
+      - V_Gut
+    notes: Net barrier state increases with LPS stress and decreases with SCFA-supported repair.
+
+  - name: VagalTone_Remodeling
+    reactants: []
+    products:
+      - vagal_tone_Gut
+    rate_type: custom_conc_per_time
+    rate_equation: "k_vagal_support * ((SCFA_Gut / V_Gut) / (K_SCFA_vagal + (SCFA_Gut / V_Gut))) - k_vagal_suppress * (((LPS_Plasma / V_Plasma) + (TMAO_Plasma / V_Plasma)) / (K_inflam_vagal + (LPS_Plasma / V_Plasma) + (TMAO_Plasma / V_Plasma))) * vagal_tone_Gut"
+    rate_parameters:
+      - k_vagal_support
+      - K_SCFA_vagal
+      - k_vagal_suppress
+      - K_inflam_vagal
+      - V_Gut
+      - V_Plasma
+    notes: SCFA supports vagal anti-inflammatory tone; peripheral inflammatory burden suppresses it.
+
+  - name: TNFA_Production_BrainISF_from_GutSignals
+    reactants: []
+    products:
+      - TNFA_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_tnfa_brain_prod * (((LPS_Plasma / V_Plasma) / (K_LPS_tnfa + (LPS_Plasma / V_Plasma))) + alpha_tmao_tnfa * ((TMAO_Plasma / V_Plasma) / (K_TMAO_tnfa + (TMAO_Plasma / V_Plasma)))) * (1 / (1 + vagal_tone_Gut / K_vagal_protect)) - k_tnfa_brain_clear * (TNFA_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_tnfa_brain_prod
+      - K_LPS_tnfa
+      - alpha_tmao_tnfa
+      - K_TMAO_tnfa
+      - K_vagal_protect
+      - k_tnfa_brain_clear
+      - V_Plasma
+      - V_BrainISF
+    notes: Peripheral endotoxin/TMAO signals increase brain inflammatory tone, damped by vagal signaling.
+
+parameters:
+  - name: k_scfa_prod
+    value: 2.5e-4
+    units: mol/day
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder for microbial SCFA generation"
+
+  - name: k_scfa_clear
+    value: 1.2
+    units: 1/day
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder for SCFA utilization"
+
+  - name: k_lps_prod
+    value: 1.0e-8
+    units: mol/day
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder for gut endotoxin generation"
+
+  - name: k_lps_transloc
+    value: 0.15
+    units: 1/day
+    confidence: estimated
+    source: "strategy_neuroinflammation.md inflammatory trafficking motif adapted to gut barrier"
+
+  - name: K_SCFA_barrier
+    value: 1.0e-4
+    units: M
+    confidence: assumed
+    source: "Tier 4 placeholder SCFA midpoint for barrier protection"
+
+  - name: k_lps_clear_plasma
+    value: 8.0
+    units: 1/day
+    confidence: estimated
+    source: "Rapid endotoxin clearance timescale placeholder"
+
+  - name: k_tmao_prod
+    value: 4.0e-6
+    units: M/day
+    confidence: assumed
+    source: "Tier 4 placeholder for net host-microbial TMAO generation"
+
+  - name: K_LPS_tmao
+    value: 5.0e-12
+    units: M
+    confidence: assumed
+    source: "Tier 4 placeholder LPS midpoint for TMAO production"
+
+  - name: k_tmao_clear
+    value: 1.6
+    units: 1/day
+    confidence: estimated
+    source: "Tier 4 placeholder for systemic TMAO elimination"
+
+  - name: k_perm_leak
+    value: 0.35
+    units: 1/day
+    confidence: assumed
+    source: "Tier 4 placeholder for LPS-driven barrier injury"
+
+  - name: K_LPS_perm
+    value: 2.0e-8
+    units: M
+    confidence: assumed
+    source: "Tier 4 placeholder LPS midpoint for permeability increase"
+
+  - name: k_perm_repair
+    value: 0.28
+    units: 1/day
+    confidence: assumed
+    source: "Tier 4 placeholder for SCFA-supported epithelial repair"
+
+  - name: K_SCFA_perm
+    value: 1.0e-4
+    units: M
+    confidence: assumed
+    source: "Tier 4 placeholder SCFA midpoint for permeability repair"
+
+  - name: k_vagal_support
+    value: 0.30
+    units: 1/day
+    confidence: assumed
+    source: "Tier 4 placeholder for SCFA-vagal support"
+
+  - name: K_SCFA_vagal
+    value: 8.0e-5
+    units: M
+    confidence: assumed
+    source: "Tier 4 placeholder SCFA midpoint for vagal activation"
+
+  - name: k_vagal_suppress
+    value: 0.22
+    units: 1/day
+    confidence: assumed
+    source: "Tier 4 placeholder for inflammatory suppression of vagal tone"
+
+  - name: K_inflam_vagal
+    value: 5.0e-9
+    units: M
+    confidence: assumed
+    source: "Tier 4 placeholder inflammatory midpoint for vagal suppression"
+
+  - name: k_tnfa_brain_prod
+    value: 0.08
+    units: M/day
+    confidence: estimated
+    source: "strategy_neuroinflammation.md cytokine production motif adapted for peripheral-to-brain drive"
+
+  - name: K_LPS_tnfa
+    value: 2.0e-12
+    units: M
+    confidence: assumed
+    source: "Tier 4 placeholder LPS midpoint for brain TNFA drive"
+
+  - name: alpha_tmao_tnfa
+    value: 0.8
+    units: dimensionless
+    confidence: assumed
+    source: "Tier 4 placeholder weighting for TMAO contribution to TNFA"
+
+  - name: K_TMAO_tnfa
+    value: 2.0e-6
+    units: M
+    confidence: assumed
+    source: "Tier 4 placeholder TMAO midpoint for brain TNFA drive"
+
+  - name: K_vagal_protect
+    value: 1.0
+    units: arb
+    confidence: assumed
+    source: "Tier 4 normalized vagal protection midpoint"
+
+  - name: k_tnfa_brain_clear
+    value: 30.0
+    units: 1/day
+    confidence: estimated
+    source: "strategy_neuroinflammation.md TNFA fast turnover timescale"
+
+evidence:
+  - source: "plan/strategy_neuroinflammation.md"
+    supports: "Use of saturating inflammatory signaling motifs and first-order turnover in neuroinflammation coupling"
+  - source: "Exploratory gut-brain axis abstraction"
+    supports: "SCFA-protective and LPS/TMAO-proinflammatory coupling to brain cytokine drive"

@@ -1,0 +1,506 @@
+name: bbb_integrity
+description: >
+  Tier 3 blood-brain barrier integrity module for Alzheimer's disease ODE models.
+  Captures tight-junction turnover (claudin-5, occludin, ZO-1), MMP2/MMP9-mediated
+  degradation, PDGFRB-dependent pericyte maintenance, VEGF-driven vascular stress,
+  and dynamic BBB permeability remodeling across BBB, BrainISF, and Plasma.
+mechanism: "Vascular and Blood-Brain Barrier Dysfunction"
+notes: "Tier: 3. Compartments constrained to BBB, BrainISF, and Plasma."
+
+compartments:
+  - name: BBB
+    volume_parameter: V_BBB
+    volume_value: 0.002
+    volume_units: L
+    notes: "Lumped endothelial/perivascular interface containing tight junction and pericyte states."
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.25
+    volume_units: L
+    notes: "Interstitial fluid compartment carrying MMP and VEGF signals affecting BBB integrity."
+  - name: Plasma
+    volume_parameter: V_Plasma
+    volume_value: 3.0
+    volume_units: L
+    notes: "Systemic compartment providing circulating VEGF input."
+
+species:
+  - name: TJ_CLAUDIN5_BBB
+    initial_amount: 1.0e-9
+    units: mol
+  - name: TJ_OCCLUDIN_BBB
+    initial_amount: 1.0e-9
+    units: mol
+  - name: TJ_ZO1_BBB
+    initial_amount: 1.0e-9
+    units: mol
+  - name: PERICYTE_BBB
+    initial_amount: 1.0
+    units: cell_equiv
+  - name: PDGFRB_BBB
+    initial_amount: 8.0e-10
+    units: mol
+  - name: PDGFRB_active_BBB
+    initial_amount: 2.0e-10
+    units: mol
+  - name: MMP2_BrainISF
+    initial_amount: 0.03e-9
+    units: mol
+  - name: MMP9_BrainISF
+    initial_amount: 0.05e-9
+    units: mol
+  - name: VEGF_Plasma
+    initial_amount: 0.30e-9
+    units: mol
+  - name: VEGF_BrainISF
+    initial_amount: 0.06e-9
+    units: mol
+  - name: BBB_permeability_BBB
+    initial_amount: 1.0
+    units: arb
+    notes: "Normalized permeability state (1 = baseline intact BBB, higher = leakier BBB)."
+
+reactions:
+  - name: TJ_CLAUDIN5_Synthesis
+    reactants: []
+    products:
+      - TJ_CLAUDIN5_BBB
+    rate_type: custom_conc_per_time
+    rate_equation: "k_tj_cldn5_syn * (PERICYTE_BBB / Pericyte_ref)"
+    rate_parameters:
+      - k_tj_cldn5_syn
+      - Pericyte_ref
+
+  - name: TJ_CLAUDIN5_BasalTurnover
+    reactants:
+      - TJ_CLAUDIN5_BBB
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_tj_cldn5_deg
+
+  - name: TJ_CLAUDIN5_MMP2_Degradation
+    reactants:
+      - TJ_CLAUDIN5_BBB
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_tj_mmp2_deg * (TJ_CLAUDIN5_BBB / V_BBB) * (MMP2_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_tj_mmp2_deg
+      - V_BBB
+      - V_BrainISF
+
+  - name: TJ_CLAUDIN5_MMP9_Degradation
+    reactants:
+      - TJ_CLAUDIN5_BBB
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_tj_mmp9_deg * (TJ_CLAUDIN5_BBB / V_BBB) * (MMP9_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_tj_mmp9_deg
+      - V_BBB
+      - V_BrainISF
+
+  - name: TJ_OCCLUDIN_Synthesis
+    reactants: []
+    products:
+      - TJ_OCCLUDIN_BBB
+    rate_type: custom_conc_per_time
+    rate_equation: "k_tj_ocln_syn * (PERICYTE_BBB / Pericyte_ref)"
+    rate_parameters:
+      - k_tj_ocln_syn
+      - Pericyte_ref
+
+  - name: TJ_OCCLUDIN_BasalTurnover
+    reactants:
+      - TJ_OCCLUDIN_BBB
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_tj_ocln_deg
+
+  - name: TJ_OCCLUDIN_MMP9_Degradation
+    reactants:
+      - TJ_OCCLUDIN_BBB
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_tj_mmp9_deg * (TJ_OCCLUDIN_BBB / V_BBB) * (MMP9_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_tj_mmp9_deg
+      - V_BBB
+      - V_BrainISF
+
+  - name: TJ_ZO1_Synthesis
+    reactants: []
+    products:
+      - TJ_ZO1_BBB
+    rate_type: custom_conc_per_time
+    rate_equation: "k_tj_zo1_syn * (PERICYTE_BBB / Pericyte_ref)"
+    rate_parameters:
+      - k_tj_zo1_syn
+      - Pericyte_ref
+
+  - name: TJ_ZO1_BasalTurnover
+    reactants:
+      - TJ_ZO1_BBB
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_tj_zo1_deg
+
+  - name: TJ_ZO1_MMP2_Degradation
+    reactants:
+      - TJ_ZO1_BBB
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_tj_mmp2_deg * (TJ_ZO1_BBB / V_BBB) * (MMP2_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_tj_mmp2_deg
+      - V_BBB
+      - V_BrainISF
+
+  - name: Pericyte_Maintenance_by_PDGFRB
+    reactants: []
+    products:
+      - PERICYTE_BBB
+    rate_type: custom_conc_per_time
+    rate_equation: "k_pericyte_maint * (PDGFRB_active_BBB / PDGFRB_active_ref)"
+    rate_parameters:
+      - k_pericyte_maint
+      - PDGFRB_active_ref
+
+  - name: Pericyte_BasalLoss
+    reactants:
+      - PERICYTE_BBB
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_pericyte_loss_basal
+
+  - name: Pericyte_Loss_by_MMP9
+    reactants:
+      - PERICYTE_BBB
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_pericyte_loss_mmp9 * (PERICYTE_BBB / Pericyte_ref) * (MMP9_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_pericyte_loss_mmp9
+      - Pericyte_ref
+      - V_BrainISF
+
+  - name: PDGFRB_Synthesis
+    reactants: []
+    products:
+      - PDGFRB_BBB
+    rate_type: MA
+    rate_parameters:
+      - k_pdgfrb_syn
+
+  - name: PDGFRB_Turnover
+    reactants:
+      - PDGFRB_BBB
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_pdgfrb_deg
+
+  - name: PDGFRB_Activation
+    reactants:
+      - PDGFRB_BBB
+    products:
+      - PDGFRB_active_BBB
+    rate_type: custom_conc_per_time
+    rate_equation: "k_pdgfrb_act * (PDGFRB_BBB / V_BBB) / (1 + beta_vegf_pdgfrb_inhib * (VEGF_BrainISF / V_BrainISF))"
+    rate_parameters:
+      - k_pdgfrb_act
+      - beta_vegf_pdgfrb_inhib
+      - V_BBB
+      - V_BrainISF
+
+  - name: PDGFRB_Deactivation
+    reactants:
+      - PDGFRB_active_BBB
+    products:
+      - PDGFRB_BBB
+    rate_type: MA
+    rate_parameters:
+      - k_pdgfrb_deact
+
+  - name: MMP9_Production_by_VEGF
+    reactants: []
+    products:
+      - MMP9_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_mmp9_prod_basal + k_mmp9_prod_vegf * (VEGF_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_mmp9_prod_basal
+      - k_mmp9_prod_vegf
+      - V_BrainISF
+
+  - name: MMP9_Clearance
+    reactants:
+      - MMP9_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_mmp9_clear
+
+  - name: VEGF_Transport_Plasma_to_BrainISF
+    reactants:
+      - VEGF_Plasma
+    products:
+      - VEGF_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_vegf_influx * BBB_permeability_BBB * (VEGF_Plasma / V_Plasma)"
+    rate_parameters:
+      - k_vegf_influx
+      - V_Plasma
+
+  - name: VEGF_BrainISF_Clearance
+    reactants:
+      - VEGF_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_vegf_brain_clear
+
+  - name: BBB_Permeability_BasalIncrease
+    reactants: []
+    products:
+      - BBB_permeability_BBB
+    rate_type: MA
+    rate_parameters:
+      - k_bbb_perm_baseline_drift
+
+  - name: BBB_Permeability_Increase_by_MMP_and_VEGF
+    reactants: []
+    products:
+      - BBB_permeability_BBB
+    rate_type: custom_conc_per_time
+    rate_equation: "k_bbb_perm_mmp * ((MMP2_BrainISF + MMP9_BrainISF) / V_BrainISF) + k_bbb_perm_vegf * (VEGF_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_bbb_perm_mmp
+      - k_bbb_perm_vegf
+      - V_BrainISF
+
+  - name: BBB_Permeability_Repair_by_TJ_and_Pericyte
+    reactants:
+      - BBB_permeability_BBB
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_bbb_perm_repair * (BBB_permeability_BBB / BBBperm_ref) * ((TJ_CLAUDIN5_BBB + TJ_OCCLUDIN_BBB + TJ_ZO1_BBB) / TJ_total_ref) * (PERICYTE_BBB / Pericyte_ref)"
+    rate_parameters:
+      - k_bbb_perm_repair
+      - BBBperm_ref
+      - TJ_total_ref
+      - Pericyte_ref
+
+parameters:
+  - name: k_tj_cldn5_syn
+    value: 0.020
+    units: mol/hr
+    confidence: assumed
+    source: "strategy_vascular_bbb: tight-junction turnover (12-24 hr scale)"
+
+  - name: k_tj_ocln_syn
+    value: 0.018
+    units: mol/hr
+    confidence: assumed
+    source: "strategy_vascular_bbb: tight-junction turnover (12-24 hr scale)"
+
+  - name: k_tj_zo1_syn
+    value: 0.016
+    units: mol/hr
+    confidence: assumed
+    source: "strategy_vascular_bbb: tight-junction turnover (12-24 hr scale)"
+
+  - name: k_tj_cldn5_deg
+    value: 0.030
+    units: 1/hr
+    confidence: assumed
+    source: "strategy_vascular_bbb k_TJ_deg_basal"
+
+  - name: k_tj_ocln_deg
+    value: 0.030
+    units: 1/hr
+    confidence: assumed
+    source: "strategy_vascular_bbb k_TJ_deg_basal"
+
+  - name: k_tj_zo1_deg
+    value: 0.030
+    units: 1/hr
+    confidence: assumed
+    source: "strategy_vascular_bbb k_TJ_deg_basal"
+
+  - name: k_tj_mmp2_deg
+    value: 0.025
+    units: 1/(nM*hr)
+    confidence: estimated
+    source: "strategy_vascular_bbb: MMP-mediated TJ degradation"
+
+  - name: k_tj_mmp9_deg
+    value: 0.040
+    units: 1/(nM*hr)
+    confidence: estimated
+    source: "strategy_vascular_bbb: MMP-mediated TJ degradation"
+
+  - name: k_pericyte_maint
+    value: 0.010
+    units: cell_equiv/hr
+    confidence: assumed
+    source: "strategy_vascular_bbb k_pericyte_recruit"
+
+  - name: k_pericyte_loss_basal
+    value: 0.001
+    units: 1/hr
+    confidence: assumed
+    source: "strategy_vascular_bbb k_pericyte_death_basal"
+
+  - name: k_pericyte_loss_mmp9
+    value: 0.004
+    units: 1/(nM*hr)
+    confidence: estimated
+    source: "strategy_vascular_bbb: inflammatory/pericyte injury coupling"
+
+  - name: k_pdgfrb_syn
+    value: 0.004
+    units: mol/hr
+    confidence: assumed
+    source: "PDGFRB homeostasis placeholder"
+
+  - name: k_pdgfrb_deg
+    value: 0.020
+    units: 1/hr
+    confidence: assumed
+    source: "Receptor turnover placeholder"
+
+  - name: k_pdgfrb_act
+    value: 0.050
+    units: 1/hr
+    confidence: assumed
+    source: "PDGFRB signaling activation placeholder"
+
+  - name: beta_vegf_pdgfrb_inhib
+    value: 0.80
+    units: 1/nM
+    confidence: assumed
+    source: "VEGF stress opposes PDGFRB maintenance signaling"
+
+  - name: k_pdgfrb_deact
+    value: 0.080
+    units: 1/hr
+    confidence: assumed
+    source: "PDGFRB deactivation placeholder"
+
+  - name: k_mmp9_prod_basal
+    value: 0.0015
+    units: mol/hr
+    confidence: estimated
+    source: "strategy_vascular_bbb MMP axis (basal production)"
+
+  - name: k_mmp9_prod_vegf
+    value: 0.080
+    units: 1/hr
+    confidence: estimated
+    source: "VEGF-MMP coupling placeholder"
+
+  - name: k_mmp9_clear
+    value: 0.070
+    units: 1/hr
+    confidence: estimated
+    source: "MMP9 turnover placeholder"
+
+  - name: k_vegf_influx
+    value: 0.012
+    units: 1/hr
+    confidence: estimated
+    source: "Permeability-coupled VEGF ingress across BBB"
+
+  - name: k_vegf_brain_clear
+    value: 0.070
+    units: 1/hr
+    confidence: estimated
+    source: "BrainISF VEGF turnover placeholder"
+
+  - name: k_bbb_perm_baseline_drift
+    value: 0.001
+    units: 1/hr
+    confidence: assumed
+    source: "strategy_vascular_bbb age-related baseline BBB drift"
+
+  - name: k_bbb_perm_mmp
+    value: 0.10
+    units: 1/(nM*hr)
+    confidence: estimated
+    source: "strategy_vascular_bbb k_BBB_MMP_degrade"
+
+  - name: k_bbb_perm_vegf
+    value: 0.040
+    units: 1/(nM*hr)
+    confidence: estimated
+    source: "VEGF-induced permeability increase"
+
+  - name: k_bbb_perm_repair
+    value: 0.015
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_vascular_bbb k_BBB_baseline_repair scale"
+
+  - name: Pericyte_ref
+    value: 1.0
+    units: cell_equiv
+    confidence: assumed
+    source: "strategy_vascular_bbb Pericyte_baseline normalization"
+
+  - name: PDGFRB_active_ref
+    value: 2.0e-10
+    units: mol
+    confidence: assumed
+    source: "Model normalization constant"
+
+  - name: TJ_total_ref
+    value: 3.0e-9
+    units: mol
+    confidence: assumed
+    source: "Reference sum of claudin-5, occludin, and ZO-1"
+
+  - name: BBBperm_ref
+    value: 1.0
+    units: arb
+    confidence: assumed
+    source: "Normalized baseline permeability"
+
+  - name: V_BBB
+    value: 0.002
+    units: L
+    confidence: estimated
+    source: "strategy_vascular_bbb shared compartment volume"
+
+  - name: V_BrainISF
+    value: 0.25
+    units: L
+    confidence: estimated
+    source: "strategy_vascular_bbb shared compartment volume"
+
+  - name: V_Plasma
+    value: 3.0
+    units: L
+    confidence: measured
+    source: "strategy_vascular_bbb shared compartment volume"
+
+evidence:
+  - pmid: "22406537"
+    source: "Bell et al."
+    supports: "Pericyte degeneration contributes to BBB breakdown"
+  - pmid: "23602566"
+    source: "Sagare et al."
+    supports: "Pericyte loss accelerates neurovascular dysfunction"
+  - pmid: "17360908"
+    source: "Yang et al."
+    supports: "MMP-9-mediated tight-junction disruption"
+  - pmid: "22427375"
+    source: "Aslam et al."
+    supports: "Inflammatory signaling and tight-junction loss"
+  - pmid: "28106076"
+    source: "Montagne et al."
+    supports: "BBB permeability increases in aging/AD"

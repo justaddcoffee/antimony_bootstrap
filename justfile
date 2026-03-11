@@ -47,3 +47,26 @@ search-biomodels query:
 # Generate parameter provenance report
 provenance disease="alzheimers":
     uv run antimony-bootstrap provenance --disease {{disease}}
+
+# --- BioModels MCP Server ---
+
+# Clone BioModelsRAG_MCP into vendor/
+mcp-download:
+    mkdir -p vendor
+    @if [ ! -d vendor/BioModelsRAG_MCP ]; then \
+        git clone https://github.com/DylanEsguerra/BioModelsRAG_MCP.git vendor/BioModelsRAG_MCP; \
+    else \
+        echo "vendor/BioModelsRAG_MCP already exists, skipping clone"; \
+    fi
+
+# Create venv and install deps for BioModelsRAG_MCP
+mcp-setup: mcp-download
+    @if [ ! -d vendor/BioModelsRAG_MCP/venv ]; then \
+        python3 -m venv vendor/BioModelsRAG_MCP/venv; \
+    fi
+    vendor/BioModelsRAG_MCP/venv/bin/pip install -q -r vendor/BioModelsRAG_MCP/requirements.txt
+
+# Install MCP server (download + setup) and generate .mcp.json
+mcp-install: mcp-setup
+    @echo '{"mcpServers":{"biomodels-rag":{"type":"stdio","command":"'"$(pwd)"'/vendor/BioModelsRAG_MCP/venv/bin/python3","args":["'"$(pwd)"'/vendor/BioModelsRAG_MCP/mcp_server.py"]}}}' | python3 -m json.tool > .mcp.json
+    @echo "Wrote .mcp.json — restart Claude Code to pick up the MCP server"
