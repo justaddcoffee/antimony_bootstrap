@@ -2,9 +2,9 @@
   "mcpServers": {
     "biomodels-rag": {
       "type": "stdio",
-      "command": "/Users/jtr4v/PythonProject/BioModelsRAG_MCP/venv/bin/python3",
+      "command": "./vendor/BioModelsRAG_MCP/venv/bin/python3",
       "args": [
-        "/Users/jtr4v/PythonProject/BioModelsRAG_MCP/mcp_server.py"
+        "./vendor/BioModelsRAG_MCP/mcp_server.py"
       ]
     }
   }

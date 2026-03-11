@@ -1,0 +1,385 @@
+name: complement_cascade
+description: >
+  Tier 2 complement cascade module for Alzheimer's disease ODE models.
+  Captures AB42 plaque-triggered classical complement activation, C3/C5 cleavage,
+  anaphylatoxin signaling, MAC formation with inhibitory control, and
+  complement-mediated synapse tagging/elimination.
+mechanism: "Neuroinflammation"
+notes: "Tier: 2. Compartments constrained to BrainISF and Synapse."
+
+compartments:
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.25
+    volume_units: L
+    notes: "Brain interstitial fluid compartment for soluble complement proteins."
+  - name: Synapse
+    volume_parameter: V_Synapse
+    volume_value: 0.0001
+    volume_units: L
+    notes: "Synaptic compartment for receptor-coupled complement pruning signals."
+
+species:
+  - name: C1Q_BrainISF
+    initial_amount: 0.20e-9
+    units: mol
+  - name: C3_BrainISF
+    initial_amount: 1.00e-9
+    units: mol
+  - name: C3a_BrainISF
+    initial_amount: 0.01e-9
+    units: mol
+  - name: C3b_BrainISF
+    initial_amount: 0.03e-9
+    units: mol
+  - name: C4_BrainISF
+    initial_amount: 0.60e-9
+    units: mol
+  - name: C5_BrainISF
+    initial_amount: 0.40e-9
+    units: mol
+  - name: C5a_BrainISF
+    initial_amount: 0.005e-9
+    units: mol
+  - name: MAC_BrainISF
+    initial_amount: 0.001e-9
+    units: mol
+  - name: CR1_BrainISF
+    initial_amount: 0.08e-9
+    units: mol
+  - name: CD59_BrainISF
+    initial_amount: 0.12e-9
+    units: mol
+  - name: CLU_BrainISF
+    initial_amount: 0.30e-9
+    units: mol
+  - name: C1Q_AB_BrainISF
+    initial_amount: 0.01e-9
+    units: mol
+  - name: C5b_BrainISF
+    initial_amount: 0.002e-9
+    units: mol
+  - name: AB42_plaque_BrainISF
+    initial_amount: 0.20e-9
+    units: mol
+    notes: "Shared coupling species from amyloid modules."
+  - name: C3AR1_Synapse
+    initial_amount: 0.06e-9
+    units: mol
+  - name: C5AR1_Synapse
+    initial_amount: 0.04e-9
+    units: mol
+  - name: SYNAPSE_healthy_Synapse
+    initial_amount: 0.80e-9
+    units: mol
+  - name: SYNAPSE_tagged_Synapse
+    initial_amount: 0.02e-9
+    units: mol
+
+reactions:
+  - name: C1Q_Basal_Production
+    reactants: []
+    products:
+      - C1Q_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_C1Q_prod
+
+  - name: C3_Basal_Production
+    reactants: []
+    products:
+      - C3_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_C3_prod
+
+  - name: C4_Basal_Production
+    reactants: []
+    products:
+      - C4_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_C4_prod
+
+  - name: C5_Basal_Production
+    reactants: []
+    products:
+      - C5_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_C5_prod
+
+  - name: Classical_Pathway_Activation_by_AB
+    reactants:
+      - C1Q_BrainISF
+      - AB42_plaque_BrainISF
+    products:
+      - C1Q_AB_BrainISF
+      - AB42_plaque_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_C1Q_bind_AB * C1Q_BrainISF * (AB42_plaque_BrainISF / (K_AB42_C1Q + AB42_plaque_BrainISF))"
+    rate_parameters:
+      - k_C1Q_bind_AB
+      - K_AB42_C1Q
+
+  - name: C3_Cleavage_by_Convertase
+    reactants:
+      - C3_BrainISF
+      - C4_BrainISF
+      - C1Q_AB_BrainISF
+    products:
+      - C3a_BrainISF
+      - C3b_BrainISF
+      - C1Q_AB_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_C3_convertase * C1Q_AB_BrainISF * C4_BrainISF * (C3_BrainISF / (K_C3_convertase + C3_BrainISF))"
+    rate_parameters:
+      - k_C3_convertase
+      - K_C3_convertase
+
+  - name: C3a_Clearance
+    reactants:
+      - C3a_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_C3a_clear
+
+  - name: C3b_Inactivation_by_CR1_CLU
+    reactants:
+      - C3b_BrainISF
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_C3b_inact * C3b_BrainISF * ((CR1_BrainISF / (K_CR1_C3b + CR1_BrainISF)) + alpha_CLU_C3b * (CLU_BrainISF / (K_CLU_C3b + CLU_BrainISF)))"
+    rate_parameters:
+      - k_C3b_inact
+      - K_CR1_C3b
+      - alpha_CLU_C3b
+      - K_CLU_C3b
+
+  - name: C5_Cleavage_by_C5_Convertase
+    reactants:
+      - C5_BrainISF
+      - C3b_BrainISF
+    products:
+      - C5a_BrainISF
+      - C5b_BrainISF
+      - C3b_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_C5_cleave * C3b_BrainISF * (C5_BrainISF / (K_C5_convertase + C5_BrainISF))"
+    rate_parameters:
+      - k_C5_cleave
+      - K_C5_convertase
+
+  - name: C5a_Clearance
+    reactants:
+      - C5a_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_C5a_clear
+
+  - name: MAC_Formation_from_C5b
+    reactants:
+      - C5b_BrainISF
+    products:
+      - MAC_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_MAC_form * C5b_BrainISF / ((1 + CD59_BrainISF / K_CD59_MAC) * (1 + CLU_BrainISF / K_CLU_MAC))"
+    rate_parameters:
+      - k_MAC_form
+      - K_CD59_MAC
+      - K_CLU_MAC
+
+  - name: MAC_Clearance
+    reactants:
+      - MAC_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_MAC_clear
+
+  - name: Synapse_Tagging_by_C1Q_C3b
+    reactants:
+      - C3b_BrainISF
+      - SYNAPSE_healthy_Synapse
+    products:
+      - SYNAPSE_tagged_Synapse
+    rate_type: custom_conc_per_time
+    rate_equation: "k_syn_tag * C3b_BrainISF * SYNAPSE_healthy_Synapse * (C1Q_AB_BrainISF / (K_C1Q_syn_tag + C1Q_AB_BrainISF))"
+    rate_parameters:
+      - k_syn_tag
+      - K_C1Q_syn_tag
+
+  - name: Synapse_Elimination_by_C3AR1_C5AR1
+    reactants:
+      - SYNAPSE_tagged_Synapse
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_syn_elim * SYNAPSE_tagged_Synapse * (C3a_BrainISF / (K_C3a_C3AR1 + C3a_BrainISF)) * (C5a_BrainISF / (K_C5a_C5AR1 + C5a_BrainISF)) * (C3AR1_Synapse + C5AR1_Synapse)"
+    rate_parameters:
+      - k_syn_elim
+      - K_C3a_C3AR1
+      - K_C5a_C5AR1
+
+parameters:
+  - name: k_C1Q_prod
+    value: 0.020
+    units: nM/day
+    confidence: assumed
+    source: "Tier 2 placeholder; complement_cascade parameter JSON empty"
+
+  - name: k_C3_prod
+    value: 0.080
+    units: nM/day
+    confidence: assumed
+    source: "Tier 2 placeholder; complement_cascade parameter JSON empty"
+
+  - name: k_C4_prod
+    value: 0.050
+    units: nM/day
+    confidence: assumed
+    source: "Tier 2 placeholder; complement_cascade parameter JSON empty"
+
+  - name: k_C5_prod
+    value: 0.030
+    units: nM/day
+    confidence: assumed
+    source: "Tier 2 placeholder; complement_cascade parameter JSON empty"
+
+  - name: k_C1Q_bind_AB
+    value: 0.010
+    units: 1/(nM*day)
+    confidence: estimated
+    source: "plan/strategy_neuroinflammation.md (complement section)"
+
+  - name: K_AB42_C1Q
+    value: 50.0
+    units: nM
+    confidence: estimated
+    source: "plan/strategy_neuroinflammation.md; saturating AB42-triggered C1Q binding"
+
+  - name: k_C3_convertase
+    value: 0.100
+    units: 1/day
+    confidence: estimated
+    source: "plan/strategy_neuroinflammation.md; adapted from C3 cleavage guidance"
+
+  - name: K_C3_convertase
+    value: 100.0
+    units: nM
+    confidence: estimated
+    source: "plan/strategy_neuroinflammation.md"
+
+  - name: k_C3a_clear
+    value: 20.0
+    units: 1/day
+    confidence: assumed
+    source: "Fast anaphylatoxin turnover placeholder"
+
+  - name: k_C3b_inact
+    value: 3.0
+    units: 1/day
+    confidence: estimated
+    source: "CR1/clusterin-regulated C3b control; strategy-aligned estimate"
+
+  - name: K_CR1_C3b
+    value: 5.0
+    units: nM
+    confidence: assumed
+    source: "Tier 2 placeholder"
+
+  - name: alpha_CLU_C3b
+    value: 0.7
+    units: dimensionless
+    confidence: assumed
+    source: "Tier 2 placeholder for CLU enhancement of C3b inactivation"
+
+  - name: K_CLU_C3b
+    value: 20.0
+    units: nM
+    confidence: assumed
+    source: "Tier 2 placeholder"
+
+  - name: k_C5_cleave
+    value: 0.060
+    units: 1/day
+    confidence: estimated
+    source: "Classical/terminal complement progression estimate"
+
+  - name: K_C5_convertase
+    value: 60.0
+    units: nM
+    confidence: assumed
+    source: "Tier 2 placeholder"
+
+  - name: k_C5a_clear
+    value: 24.0
+    units: 1/day
+    confidence: assumed
+    source: "Fast anaphylatoxin turnover placeholder"
+
+  - name: k_MAC_form
+    value: 0.040
+    units: 1/day
+    confidence: estimated
+    source: "Terminal pathway placeholder with CD59/CLU inhibition"
+
+  - name: K_CD59_MAC
+    value: 10.0
+    units: nM
+    confidence: assumed
+    source: "Tier 2 placeholder"
+
+  - name: K_CLU_MAC
+    value: 40.0
+    units: nM
+    confidence: assumed
+    source: "Tier 2 placeholder"
+
+  - name: k_MAC_clear
+    value: 1.5
+    units: 1/day
+    confidence: assumed
+    source: "Tier 2 placeholder"
+
+  - name: k_syn_tag
+    value: 0.008
+    units: 1/(nM*day)
+    confidence: estimated
+    source: "plan/strategy_neuroinflammation.md complement-mediated synapse tagging"
+
+  - name: K_C1Q_syn_tag
+    value: 5.0
+    units: nM
+    confidence: estimated
+    source: "plan/strategy_neuroinflammation.md"
+
+  - name: k_syn_elim
+    value: 0.012
+    units: 1/day
+    confidence: estimated
+    source: "Hong et al. (PMID:27338780) motif adapted in strategy"
+
+  - name: K_C3a_C3AR1
+    value: 1.0
+    units: nM
+    confidence: assumed
+    source: "Tier 2 receptor activation placeholder"
+
+  - name: K_C5a_C5AR1
+    value: 0.8
+    units: nM
+    confidence: assumed
+    source: "Tier 2 receptor activation placeholder"
+
+evidence:
+  - pmid: "1373228"
+    source: "Rogers et al."
+    supports: "AB-associated classical complement activation"
+  - pmid: "15329385"
+    source: "Fonseca et al."
+    supports: "C1q/C3 axis in neurodegeneration"
+  - pmid: "27338780"
+    source: "Hong et al."
+    supports: "Complement-mediated synapse elimination"

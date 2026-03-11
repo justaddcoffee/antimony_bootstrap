@@ -1,0 +1,422 @@
+name: apoptosis
+description: >
+  Tier 2 intrinsic apoptosis module for Alzheimer's disease ODE models.
+  Captures BAX/BCL2 mitochondrial stress balance, cytochrome c and AIF release,
+  apoptosome assembly, caspase-9 to caspase-3 signaling, PARP cleavage,
+  and progressive neuronal loss.
+mechanism: "Neuronal Apoptosis"
+notes: "Tier: 2. Intrinsic mitochondrial pathway in Neuron compartment."
+
+compartments:
+  - name: Neuron
+    volume_parameter: V_Neuron
+    volume_value: 0.0005
+    volume_units: L
+    notes: "Neuronal intracellular compartment for apoptosis signaling."
+
+species:
+  - name: CASP3
+    compartment: Neuron
+    initial_amount: 5.0e-12
+    units: mol
+    notes: "Active caspase-3 executioner pool."
+  - name: CASP9
+    compartment: Neuron
+    initial_amount: 5.0e-12
+    units: mol
+    notes: "Active caspase-9 initiator pool."
+  - name: CYTO_C
+    compartment: Neuron
+    initial_amount: 1.0e-12
+    units: mol
+    notes: "Cytosolic cytochrome c released from mitochondria."
+  - name: BAX
+    compartment: Neuron
+    initial_amount: 2.0e-11
+    units: mol
+    notes: "Pro-apoptotic BAX effector."
+  - name: BCL2
+    compartment: Neuron
+    initial_amount: 8.0e-11
+    units: mol
+    notes: "Anti-apoptotic BCL2 buffer."
+  - name: APAF1
+    compartment: Neuron
+    initial_amount: 6.0e-11
+    units: mol
+    notes: "Apoptotic protease activating factor 1."
+  - name: APOPTOSOME
+    compartment: Neuron
+    initial_amount: 0.0
+    units: mol
+  - name: PARP
+    compartment: Neuron
+    initial_amount: 9.0e-11
+    units: mol
+    notes: "Uncleaved PARP substrate."
+  - name: PARP_CLEAVED
+    compartment: Neuron
+    initial_amount: 0.0
+    units: mol
+  - name: NEURON_count
+    compartment: Neuron
+    initial_amount: 1.0
+    units: cell_equivalent
+    notes: "Normalized surviving neuron pool (1.0 = baseline)."
+  - name: AIF
+    compartment: Neuron
+    initial_amount: 1.0e-12
+    units: mol
+    notes: "Apoptosis-inducing factor released from mitochondria."
+  - name: BID
+    compartment: Neuron
+    initial_amount: 3.0e-11
+    units: mol
+  - name: BAD
+    compartment: Neuron
+    initial_amount: 3.0e-11
+    units: mol
+
+reactions:
+  - name: BID_Activation
+    reactants: []
+    products:
+      - BID
+    rate_type: MA
+    rate_parameters:
+      - k_bid_syn
+
+  - name: BAD_Activation
+    reactants: []
+    products:
+      - BAD
+    rate_type: MA
+    rate_parameters:
+      - k_bad_syn
+
+  - name: BCL2_Synthesis
+    reactants: []
+    products:
+      - BCL2
+    rate_type: MA
+    rate_parameters:
+      - k_bcl2_syn
+
+  - name: BCL2_Turnover
+    reactants:
+      - BCL2
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_bcl2_deg
+
+  - name: BAX_Activation_by_BID_BAD
+    reactants:
+      - BID
+      - BAD
+    products:
+      - BID
+      - BAD
+      - BAX
+    rate_type: MA
+    rate_parameters:
+      - k_bax_act
+
+  - name: BAX_Inhibition_by_BCL2
+    reactants:
+      - BAX
+      - BCL2
+    products:
+      - BCL2
+    rate_type: MA
+    rate_parameters:
+      - k_bax_inhib
+
+  - name: CYTO_C_Release
+    reactants: []
+    products:
+      - CYTO_C
+    rate_type: custom_conc_per_time
+    rate_equation: "k_cytc_rel_base + k_cytc_rel_bax * (BAX / V_Neuron) / (K_bcl2_protect + (BCL2 / V_Neuron))"
+    rate_parameters:
+      - k_cytc_rel_base
+      - k_cytc_rel_bax
+      - K_bcl2_protect
+      - V_Neuron
+
+  - name: CYTO_C_Clearance
+    reactants:
+      - CYTO_C
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_cytc_clear
+
+  - name: AIF_Release
+    reactants: []
+    products:
+      - AIF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_aif_rel * (BAX / V_Neuron) / (K_aif_rel + (BAX / V_Neuron))"
+    rate_parameters:
+      - k_aif_rel
+      - K_aif_rel
+      - V_Neuron
+
+  - name: AIF_Clearance
+    reactants:
+      - AIF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_aif_clear
+
+  - name: Apoptosome_Formation
+    reactants:
+      - CYTO_C
+      - APAF1
+    products:
+      - APOPTOSOME
+    rate_type: MA
+    rate_parameters:
+      - k_apoptosome_form
+
+  - name: Apoptosome_Disassembly
+    reactants:
+      - APOPTOSOME
+    products:
+      - APAF1
+    rate_type: MA
+    rate_parameters:
+      - k_apoptosome_dis
+
+  - name: CASP9_Activation
+    reactants:
+      - APOPTOSOME
+    products:
+      - APOPTOSOME
+      - CASP9
+    rate_type: MA
+    rate_parameters:
+      - k_casp9_act
+
+  - name: CASP9_Turnover
+    reactants:
+      - CASP9
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_casp9_deg
+
+  - name: CASP3_Activation
+    reactants:
+      - CASP9
+    products:
+      - CASP9
+      - CASP3
+    rate_type: custom_conc_per_time
+    rate_equation: "k_casp3_basal * (CASP9 / V_Neuron) + k_casp3_aif * (CASP9 / V_Neuron) * (AIF / V_Neuron) / (K_apoptosis_trigger + (AIF / V_Neuron))"
+    rate_parameters:
+      - k_casp3_basal
+      - k_casp3_aif
+      - K_apoptosis_trigger
+      - V_Neuron
+
+  - name: CASP3_Turnover
+    reactants:
+      - CASP3
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_casp3_deg
+
+  - name: PARP_Cleavage_by_CASP3
+    reactants:
+      - PARP
+      - CASP3
+    products:
+      - CASP3
+      - PARP_CLEAVED
+    rate_type: MA
+    rate_parameters:
+      - k_parp_cleave
+
+  - name: PARP_Resynthesis
+    reactants: []
+    products:
+      - PARP
+    rate_type: MA
+    rate_parameters:
+      - k_parp_syn
+
+  - name: Neuronal_Loss_via_CASP3
+    reactants:
+      - NEURON_count
+      - CASP3
+    products:
+      - CASP3
+    rate_type: MA
+    rate_parameters:
+      - k_neuron_loss_casp3
+
+  - name: Neuronal_Loss_via_AIF
+    reactants:
+      - NEURON_count
+      - AIF
+    products:
+      - AIF
+    rate_type: MA
+    rate_parameters:
+      - k_neuron_loss_aif
+
+parameters:
+  - name: V_Neuron
+    value: 0.0005
+    units: L
+    confidence: measured
+    source: "module compartment specification (Neuron volume)"
+
+  - name: k_bid_syn
+    value: 2.0e-12
+    units: mol/hr
+    confidence: assumed
+    source: "homeostatic pro-apoptotic BH3 synthesis"
+
+  - name: k_bad_syn
+    value: 2.0e-12
+    units: mol/hr
+    confidence: assumed
+    source: "homeostatic pro-apoptotic BH3 synthesis"
+
+  - name: k_bcl2_syn
+    value: 4.0e-12
+    units: mol/hr
+    confidence: estimated
+    source: "anti-apoptotic buffering scale"
+  - name: k_bcl2_deg
+    value: 0.05
+    units: 1/hr
+    confidence: estimated
+    source: "BCL2 turnover assumption"
+
+  - name: k_bax_act
+    value: 2.0e8
+    units: 1/mol/hr
+    confidence: estimated
+    source: "mass-action scaling for BID/BAD-driven BAX activation"
+  - name: k_bax_inhib
+    value: 8.0e8
+    units: 1/mol/hr
+    confidence: estimated
+    source: "BCL2 sequestration of active BAX"
+
+  - name: k_cytc_rel_base
+    value: 2.0e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal mitochondrial dysfunction context"
+  - name: k_cytc_rel_bax
+    value: 6.0e-8
+    units: mol/L/hr
+    confidence: estimated
+    source: "BAX-modulated cytochrome c release scaling"
+  - name: K_bcl2_protect
+    value: 5.0e-8
+    units: mol/L
+    confidence: assumed
+    source: "BCL2 protection half-saturation scale"
+  - name: k_cytc_clear
+    value: 0.15
+    units: 1/hr
+    confidence: estimated
+    source: "cytosolic cytochrome c removal timescale"
+
+  - name: k_aif_rel
+    value: 3.0e-8
+    units: mol/L/hr
+    confidence: estimated
+    source: "BAX-dependent AIF release scaling"
+  - name: K_aif_rel
+    value: 8.0e-8
+    units: mol/L
+    confidence: assumed
+    source: "AIF release half-saturation scale"
+  - name: k_aif_clear
+    value: 0.1
+    units: 1/hr
+    confidence: estimated
+    source: "AIF clearance/turnover timescale"
+
+  - name: k_apoptosome_form
+    value: 2.0e8
+    units: 1/mol/hr
+    confidence: estimated
+    source: "mass-action CytC-APAF1 complex assembly"
+  - name: k_apoptosome_dis
+    value: 0.04
+    units: 1/hr
+    confidence: assumed
+    source: "apoptosome disassembly timescale"
+
+  - name: k_casp9_act
+    value: 0.25
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal neuronal_death section (k_casp9 scale)"
+  - name: k_casp9_deg
+    value: 0.12
+    units: 1/hr
+    confidence: estimated
+    source: "caspase deactivation/turnover timescale"
+
+  - name: k_casp3_basal
+    value: 0.3
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal neuronal_death section (k_casp3 scale)"
+  - name: k_casp3_aif
+    value: 0.9
+    units: mol/L/hr
+    confidence: estimated
+    source: "AIF amplification of caspase-3 activation"
+  - name: K_apoptosis_trigger
+    value: 1.3787157053417275e-3
+    units: mol/L
+    confidence: estimated
+    source: "data/parameters/module/apoptosis.json geometric mean (1378.7 uM)"
+    notes: "Mapped from generic cell-death concentration evidence as AIF-mediated activation threshold proxy."
+  - name: k_casp3_deg
+    value: 0.14
+    units: 1/hr
+    confidence: estimated
+    source: "caspase-3 turnover timescale"
+
+  - name: k_parp_cleave
+    value: 4.0e8
+    units: 1/mol/hr
+    confidence: estimated
+    source: "execution-phase PARP cleavage by CASP3"
+  - name: k_parp_syn
+    value: 4.0e-12
+    units: mol/hr
+    confidence: assumed
+    source: "basal PARP replenishment"
+
+  - name: k_neuron_loss_casp3
+    value: 0.001
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal neuronal_death section (k_apoptosis scale)"
+  - name: k_neuron_loss_aif
+    value: 5.0e-4
+    units: 1/hr
+    confidence: estimated
+    source: "AIF-dependent slower parallel death pathway"
+
+evidence:
+  - source: "plan/strategy_synaptic_neuronal.md"
+    supports: "Neuronal death module should include CytC-apoptosome-caspase cascade and neuron loss readout."
+  - source: "data/parameters/module/apoptosis.json"
+    supports: "Cell-death-associated concentration scale used for apoptosis trigger threshold parameterization."
+  - source: "../Elbert_Esguerra_model_v2026b/antimony_models/"
+    supports: "No direct CASP/BAX intrinsic apoptosis block found; antimony conventions reused for compartment naming and MA/custom rate types."

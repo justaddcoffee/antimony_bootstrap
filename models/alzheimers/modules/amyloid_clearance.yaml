@@ -1,0 +1,613 @@
+name: amyloid_clearance
+description: >
+  Tier 1 amyloid clearance module for Alzheimer's disease ODE models.
+  Captures AB42/AB40 enzymatic degradation in BrainISF (IDE, NEP, MMP9),
+  microglial phagocytic uptake and lysosomal degradation, perivascular drainage,
+  ISF bulk flow, and LRP1-mediated perivascular efflux.
+mechanism: "Amyloid Cascade"
+notes: "Tier: 1 (core). Compartments constrained to BrainISF, Microglia, and Perivascular."
+
+compartments:
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.25
+    volume_units: L
+    notes: "Primary soluble amyloid compartment."
+  - name: Microglia
+    volume_parameter: V_Microglia
+    volume_value: 0.01
+    volume_units: L
+    notes: "Lumped microglial compartment for phagocytic uptake and intracellular degradation."
+  - name: Perivascular
+    volume_parameter: V_Perivascular
+    volume_value: 0.03
+    volume_units: L
+    notes: "Perivascular drainage pathway compartment."
+
+species:
+  - name: AB42_BrainISF
+    initial_amount: 1.0e-9
+    units: mol
+  - name: AB40_BrainISF
+    initial_amount: 2.0e-9
+    units: mol
+  - name: AB42_Perivascular
+    initial_amount: 0.0
+    units: mol
+  - name: AB40_Perivascular
+    initial_amount: 0.0
+    units: mol
+  - name: AB42_Microglia
+    initial_amount: 0.0
+    units: mol
+  - name: AB40_Microglia
+    initial_amount: 0.0
+    units: mol
+  - name: IDE_BrainISF
+    initial_amount: 5.0e-10
+    units: mol
+  - name: NEP_BrainISF
+    initial_amount: 5.0e-10
+    units: mol
+  - name: MMP9_BrainISF
+    initial_amount: 2.0e-10
+    units: mol
+  - name: LRP1_Perivascular
+    initial_amount: 1.0e-9
+    units: mol
+  - name: microglia_resting_Microglia
+    initial_amount: 0.9
+    units: a.u.
+  - name: microglia_phagocytic_Microglia
+    initial_amount: 0.1
+    units: a.u.
+
+reactions:
+  - name: IDE_Degradation_AB42_BrainISF
+    reactants:
+      - AB42_BrainISF
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_IDE_AB42 * (IDE_BrainISF / IDE_ref_BrainISF) * (AB42_BrainISF / V_BrainISF)) / (Km_IDE_AB42 + (AB42_BrainISF / V_BrainISF))"
+    rate_parameters:
+      - Vmax_IDE_AB42
+      - Km_IDE_AB42
+      - IDE_ref_BrainISF
+      - V_BrainISF
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.3.3"
+        supports: "IDE contributes to soluble Abeta degradation"
+      - source: "Elbert 3a parameter IDE_Kcat_ISF_AB42"
+        supports: "IDE-linked AB42 degradation motif"
+    rate_law_evidence:
+      - source: "Strategy amyloid cascade, section 4.3.3"
+        supports: "Michaelis-Menten form for IDE-mediated ABeta degradation"
+
+  - name: IDE_Degradation_AB40_BrainISF
+    reactants:
+      - AB40_BrainISF
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_IDE_AB40 * (IDE_BrainISF / IDE_ref_BrainISF) * (AB40_BrainISF / V_BrainISF)) / (Km_IDE_AB40 + (AB40_BrainISF / V_BrainISF))"
+    rate_parameters:
+      - Vmax_IDE_AB40
+      - Km_IDE_AB40
+      - IDE_ref_BrainISF
+      - V_BrainISF
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.3.3"
+        supports: "IDE contributes to soluble Abeta degradation"
+      - source: "Elbert 3a parameter IDE_Kcat_ISF_AB40"
+        supports: "IDE-linked AB40 degradation motif"
+    rate_law_evidence:
+      - source: "Strategy amyloid cascade, section 4.3.3"
+        supports: "Michaelis-Menten form for IDE-mediated ABeta degradation"
+
+  - name: NEP_Degradation_AB42_BrainISF
+    reactants:
+      - AB42_BrainISF
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_NEP_AB42 * (NEP_BrainISF / NEP_ref_BrainISF) * (AB42_BrainISF / V_BrainISF)) / (Km_NEP_AB42 + (AB42_BrainISF / V_BrainISF))"
+    rate_parameters:
+      - Vmax_NEP_AB42
+      - Km_NEP_AB42
+      - NEP_ref_BrainISF
+      - V_BrainISF
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.3.2"
+        supports: "NEP degrades soluble AB42"
+    rate_law_evidence:
+      - source: "Strategy amyloid cascade, section 4.3.2"
+        supports: "Michaelis-Menten form for NEP-mediated ABeta degradation"
+
+  - name: NEP_Degradation_AB40_BrainISF
+    reactants:
+      - AB40_BrainISF
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_NEP_AB40 * (NEP_BrainISF / NEP_ref_BrainISF) * (AB40_BrainISF / V_BrainISF)) / (Km_NEP_AB40 + (AB40_BrainISF / V_BrainISF))"
+    rate_parameters:
+      - Vmax_NEP_AB40
+      - Km_NEP_AB40
+      - NEP_ref_BrainISF
+      - V_BrainISF
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.3.2"
+        supports: "NEP degrades soluble AB40"
+    rate_law_evidence:
+      - source: "Strategy amyloid cascade, section 4.3.2"
+        supports: "Michaelis-Menten form for NEP-mediated ABeta degradation"
+
+  - name: MMP9_Degradation_AB42_BrainISF
+    reactants:
+      - AB42_BrainISF
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_MMP9_AB42 * (MMP9_BrainISF / MMP9_ref_BrainISF) * (AB42_BrainISF / V_BrainISF)) / (Km_MMP9_AB42 + (AB42_BrainISF / V_BrainISF))"
+    rate_parameters:
+      - Vmax_MMP9_AB42
+      - Km_MMP9_AB42
+      - MMP9_ref_BrainISF
+      - V_BrainISF
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.1"
+        supports: "MMP enzymes contribute to soluble amyloid clearance"
+    rate_law_evidence:
+      - source: "Tier-1 enzymatic extension"
+        supports: "Michaelis-Menten form aligned with other protease-mediated pathways"
+
+  - name: MMP9_Degradation_AB40_BrainISF
+    reactants:
+      - AB40_BrainISF
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_MMP9_AB40 * (MMP9_BrainISF / MMP9_ref_BrainISF) * (AB40_BrainISF / V_BrainISF)) / (Km_MMP9_AB40 + (AB40_BrainISF / V_BrainISF))"
+    rate_parameters:
+      - Vmax_MMP9_AB40
+      - Km_MMP9_AB40
+      - MMP9_ref_BrainISF
+      - V_BrainISF
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.1"
+        supports: "MMP enzymes contribute to soluble amyloid clearance"
+    rate_law_evidence:
+      - source: "Tier-1 enzymatic extension"
+        supports: "Michaelis-Menten form aligned with other protease-mediated pathways"
+
+  - name: MicrogliaActivation_Resting_to_Phagocytic
+    reactants:
+      - microglia_resting_Microglia
+    products:
+      - microglia_phagocytic_Microglia
+    rate_type: custom_conc_per_time
+    rate_equation: "k_microglia_activation * (microglia_resting_Microglia / V_Microglia) * ((AB42_BrainISF / V_BrainISF)^hill_microglia_activation) / (Kact_microglia_AB42^hill_microglia_activation + (AB42_BrainISF / V_BrainISF)^hill_microglia_activation)"
+    rate_parameters:
+      - k_microglia_activation
+      - hill_microglia_activation
+      - Kact_microglia_AB42
+      - V_Microglia
+      - V_BrainISF
+    evidence:
+      - source: "Elbert 3a reaction family Microglia_Activation_*"
+        supports: "State transition between microglia phenotypes"
+    rate_law_evidence:
+      - source: "amyloid_clearance parameter extraction"
+        supports: "Hill coefficient support for nonlinear activation"
+
+  - name: MicrogliaDeactivation_Phagocytic_to_Resting
+    reactants:
+      - microglia_phagocytic_Microglia
+    products:
+      - microglia_resting_Microglia
+    rate_type: MA
+    rate_parameters:
+      - k_microglia_deactivation
+    evidence:
+      - source: "Tier-1 closure"
+        supports: "Allows reversible microglial state dynamics"
+    rate_law_evidence:
+      - source: "Simplified immune-state turnover"
+        supports: "First-order return to baseline"
+
+  - name: MicrogliaPhagocytosis_AB42_BrainISF
+    reactants:
+      - AB42_BrainISF
+    products:
+      - AB42_Microglia
+    rate_type: custom_conc_per_time
+    rate_equation: "k_phago_AB42 * (microglia_phagocytic_Microglia / V_Microglia) * (AB42_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_phago_AB42
+      - V_Microglia
+      - V_BrainISF
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.1"
+        supports: "Microglial phagocytosis is a principal plaque/amyloid clearance route"
+      - source: "Elbert 3a reaction MicrogliaDegradation*"
+        supports: "Microglia-dependent ABeta removal motif"
+    rate_law_evidence:
+      - source: "Tier-1 uptake abstraction"
+        supports: "Second-order dependence on substrate and phagocytic microglia"
+
+  - name: MicrogliaPhagocytosis_AB40_BrainISF
+    reactants:
+      - AB40_BrainISF
+    products:
+      - AB40_Microglia
+    rate_type: custom_conc_per_time
+    rate_equation: "k_phago_AB40 * (microglia_phagocytic_Microglia / V_Microglia) * (AB40_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_phago_AB40
+      - V_Microglia
+      - V_BrainISF
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.1"
+        supports: "Microglial phagocytosis contributes to AB40/AB42 clearance"
+      - source: "Elbert 3a reaction MicrogliaDegradation*"
+        supports: "Microglia-dependent ABeta removal motif"
+    rate_law_evidence:
+      - source: "Tier-1 uptake abstraction"
+        supports: "Second-order dependence on substrate and phagocytic microglia"
+
+  - name: MicrogliaLysosomalDegradation_AB42
+    reactants:
+      - AB42_Microglia
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_lysosomal_deg_AB42
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.1"
+        supports: "Internalized amyloid is degraded intracellularly after phagocytosis"
+    rate_law_evidence:
+      - source: "Tier-1 intracellular processing simplification"
+        supports: "First-order lysosomal degradation"
+
+  - name: MicrogliaLysosomalDegradation_AB40
+    reactants:
+      - AB40_Microglia
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_lysosomal_deg_AB40
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.1"
+        supports: "Internalized amyloid is degraded intracellularly after phagocytosis"
+    rate_law_evidence:
+      - source: "Tier-1 intracellular processing simplification"
+        supports: "First-order lysosomal degradation"
+
+  - name: ISFBulkFlow_AB42_to_Perivascular
+    reactants:
+      - AB42_BrainISF
+    products:
+      - AB42_Perivascular
+    rate_type: MA
+    rate_parameters:
+      - k_ISF_to_Perivascular_AB42
+    evidence:
+      - source: "Strategy amyloid cascade, sections 4.1 and 4.3.7"
+        supports: "Bulk flow drives soluble Abeta out of ISF toward drainage pathways"
+    rate_law_evidence:
+      - source: "Tier-1 first-order flow approximation"
+        supports: "MA first-order transfer between connected compartments"
+
+  - name: ISFBulkFlow_AB40_to_Perivascular
+    reactants:
+      - AB40_BrainISF
+    products:
+      - AB40_Perivascular
+    rate_type: MA
+    rate_parameters:
+      - k_ISF_to_Perivascular_AB40
+    evidence:
+      - source: "Strategy amyloid cascade, sections 4.1 and 4.3.7"
+        supports: "Bulk flow drives soluble Abeta out of ISF toward drainage pathways"
+    rate_law_evidence:
+      - source: "Tier-1 first-order flow approximation"
+        supports: "MA first-order transfer between connected compartments"
+
+  - name: PerivascularDrainage_AB42
+    reactants:
+      - AB42_Perivascular
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_PerivascularDrain_AB42
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.1"
+        supports: "Perivascular drainage is a distinct soluble Abeta clearance route"
+    rate_law_evidence:
+      - source: "Tier-1 drainage approximation"
+        supports: "First-order perivascular outflow"
+
+  - name: PerivascularDrainage_AB40
+    reactants:
+      - AB40_Perivascular
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_PerivascularDrain_AB40
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.1"
+        supports: "Perivascular drainage is a distinct soluble Abeta clearance route"
+    rate_law_evidence:
+      - source: "Tier-1 drainage approximation"
+        supports: "First-order perivascular outflow"
+
+  - name: ISFBulkClearance_AB42
+    reactants:
+      - AB42_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_ISF_bulk_clear_AB42
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.3.4"
+        supports: "Lumped first-order baseline ISF clearance captures unresolved routes"
+    rate_law_evidence:
+      - source: "Elbert-style first-order degradation motifs"
+        supports: "Mass-action baseline sink"
+
+  - name: ISFBulkClearance_AB40
+    reactants:
+      - AB40_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_ISF_bulk_clear_AB40
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.3.4"
+        supports: "Lumped first-order baseline ISF clearance captures unresolved routes"
+    rate_law_evidence:
+      - source: "Elbert-style first-order degradation motifs"
+        supports: "Mass-action baseline sink"
+
+  - name: LRP1Efflux_AB42_Perivascular
+    reactants:
+      - AB42_Perivascular
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_LRP1_AB42 * (LRP1_Perivascular / LRP1_ref_Perivascular) * (AB42_Perivascular / V_Perivascular)) / (Km_LRP1_AB42 + (AB42_Perivascular / V_Perivascular))"
+    rate_parameters:
+      - Vmax_LRP1_AB42
+      - Km_LRP1_AB42
+      - LRP1_ref_Perivascular
+      - V_Perivascular
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.3.5"
+        supports: "LRP1-mediated efflux contributes to soluble ABeta clearance"
+    rate_law_evidence:
+      - source: "Strategy amyloid cascade, section 4.3.5"
+        supports: "Saturable transporter kinetics for LRP1-mediated export"
+
+  - name: LRP1Efflux_AB40_Perivascular
+    reactants:
+      - AB40_Perivascular
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vmax_LRP1_AB40 * (LRP1_Perivascular / LRP1_ref_Perivascular) * (AB40_Perivascular / V_Perivascular)) / (Km_LRP1_AB40 + (AB40_Perivascular / V_Perivascular))"
+    rate_parameters:
+      - Vmax_LRP1_AB40
+      - Km_LRP1_AB40
+      - LRP1_ref_Perivascular
+      - V_Perivascular
+    evidence:
+      - source: "Strategy amyloid cascade, section 4.3.5"
+        supports: "LRP1-mediated efflux contributes to soluble ABeta clearance"
+    rate_law_evidence:
+      - source: "Strategy amyloid cascade, section 4.3.5"
+        supports: "Saturable transporter kinetics for LRP1-mediated export"
+
+parameters:
+  - name: V_BrainISF
+    value: 0.25
+    units: L
+    confidence: assumed
+    source: "Declared BrainISF compartment volume"
+  - name: V_Microglia
+    value: 0.01
+    units: L
+    confidence: assumed
+    source: "Declared Microglia compartment volume"
+  - name: V_Perivascular
+    value: 0.03
+    units: L
+    confidence: assumed
+    source: "Declared Perivascular compartment volume"
+
+  - name: Vmax_IDE_AB42
+    value: 2.0e-9
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md (IDE Vmax range)"
+  - name: Km_IDE_AB42
+    value: 2.0e-6
+    units: mol/L
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md and amyloid_clearance parameter extraction (Km signal)"
+  - name: Vmax_IDE_AB40
+    value: 2.5e-9
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md (IDE Vmax range)"
+  - name: Km_IDE_AB40
+    value: 2.5e-6
+    units: mol/L
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md"
+  - name: IDE_ref_BrainISF
+    value: 5.0e-10
+    units: mol
+    confidence: assumed
+    source: "Tier-1 enzyme scaling reference"
+
+  - name: Vmax_NEP_AB42
+    value: 3.0e-9
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md (NEP Vmax range)"
+  - name: Km_NEP_AB42
+    value: 1.0e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md (NEP high-Km behavior)"
+  - name: Vmax_NEP_AB40
+    value: 3.0e-9
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md"
+  - name: Km_NEP_AB40
+    value: 1.2e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md"
+  - name: NEP_ref_BrainISF
+    value: 5.0e-10
+    units: mol
+    confidence: assumed
+    source: "Tier-1 enzyme scaling reference"
+
+  - name: Vmax_MMP9_AB42
+    value: 8.0e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md (MMP-mediated degradation mention)"
+  - name: Km_MMP9_AB42
+    value: 4.0e-6
+    units: mol/L
+    confidence: estimated
+    source: "Tier-1 MMP9 clearance assumption"
+  - name: Vmax_MMP9_AB40
+    value: 9.0e-10
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md (MMP-mediated degradation mention)"
+  - name: Km_MMP9_AB40
+    value: 4.5e-6
+    units: mol/L
+    confidence: estimated
+    source: "Tier-1 MMP9 clearance assumption"
+  - name: MMP9_ref_BrainISF
+    value: 2.0e-10
+    units: mol
+    confidence: assumed
+    source: "Tier-1 enzyme scaling reference"
+
+  - name: k_microglia_activation
+    value: 0.02
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert microglia activation motif + Tier-1 scaling"
+  - name: Kact_microglia_AB42
+    value: 2.0e-9
+    units: mol/L
+    confidence: estimated
+    source: "amyloid_clearance parameter extraction (Km signal) + Tier-1 scaling"
+  - name: hill_microglia_activation
+    value: 4.0
+    units: dimensionless
+    confidence: estimated
+    source: "amyloid_clearance parameter extraction (Hill_coefficient)"
+  - name: k_microglia_deactivation
+    value: 0.01
+    units: 1/hr
+    confidence: assumed
+    source: "Tier-1 reversible microglia-state closure"
+  - name: k_phago_AB42
+    value: 0.08
+    units: L/(a.u.*hr)
+    confidence: estimated
+    source: "Strategy microglial phagocytosis guidance"
+  - name: k_phago_AB40
+    value: 0.06
+    units: L/(a.u.*hr)
+    confidence: estimated
+    source: "Strategy microglial phagocytosis guidance"
+  - name: k_lysosomal_deg_AB42
+    value: 0.2
+    units: 1/hr
+    confidence: estimated
+    source: "Tier-1 intracellular lysosomal degradation assumption"
+  - name: k_lysosomal_deg_AB40
+    value: 0.2
+    units: 1/hr
+    confidence: estimated
+    source: "Tier-1 intracellular lysosomal degradation assumption"
+
+  - name: k_ISF_to_Perivascular_AB42
+    value: 0.025
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md (ISF bulk flow range)"
+  - name: k_ISF_to_Perivascular_AB40
+    value: 0.03
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md (ISF bulk flow range)"
+  - name: k_PerivascularDrain_AB42
+    value: 0.02
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md (perivascular drainage concept)"
+  - name: k_PerivascularDrain_AB40
+    value: 0.024
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md (perivascular drainage concept)"
+  - name: k_ISF_bulk_clear_AB42
+    value: 0.026
+    units: 1/hr
+    confidence: estimated
+    source: "amyloid_clearance parameter extraction (degradation_rate geometric mean)"
+  - name: k_ISF_bulk_clear_AB40
+    value: 0.03
+    units: 1/hr
+    confidence: estimated
+    source: "Tier-1 AB40 baseline ISF clearance approximation"
+
+  - name: Vmax_LRP1_AB42
+    value: 1.5e-9
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md (LRP1 efflux guidance)"
+  - name: Km_LRP1_AB42
+    value: 5.0e-8
+    units: mol/L
+    confidence: estimated
+    source: "Tier-1 saturable transporter assumption"
+  - name: Vmax_LRP1_AB40
+    value: 1.8e-9
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_amyloid_cascade.md (LRP1 efflux guidance)"
+  - name: Km_LRP1_AB40
+    value: 5.0e-8
+    units: mol/L
+    confidence: estimated
+    source: "Tier-1 saturable transporter assumption"
+  - name: LRP1_ref_Perivascular
+    value: 1.0e-9
+    units: mol
+    confidence: assumed
+    source: "Tier-1 transporter scaling reference"
+
+rules:
+  - name: ABeta_total_BrainISF
+    equation: "ABeta_total_BrainISF = AB42_BrainISF + AB40_BrainISF"
+    notes: "Convenience observable for ISF amyloid burden."
+  - name: ABeta_total_Perivascular
+    equation: "ABeta_total_Perivascular = AB42_Perivascular + AB40_Perivascular"
+    notes: "Convenience observable for perivascular drainage burden."
+  - name: Microglia_total
+    equation: "Microglia_total = microglia_resting_Microglia + microglia_phagocytic_Microglia"
+    notes: "State-partitioned microglia total in the tier-1 compartment."
+
+evidence:
+  - source: "plan/strategy_amyloid_cascade.md"
+    supports: "Mechanistic inclusion of IDE/NEP/MMP9 degradation, microglial phagocytosis, and perivascular drainage."
+  - source: "../Elbert_Esguerra_model_v2026b/antimony_models/Antimony_Elbert_Esguerra_3a_all_reactions.txt"
+    supports: "Microglia-dependent ABeta degradation motifs and first-order ISF clearance structures."
+  - source: "../Elbert_Esguerra_model_v2026b/antimony_models/Antimony_Elbert_Esguerra_3a_parameters.txt"
+    supports: "IDE-linked degradation constants and microglia clearance parameter families."

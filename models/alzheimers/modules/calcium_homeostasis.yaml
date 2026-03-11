@@ -1,0 +1,540 @@
+name: calcium_homeostasis
+description: >
+  Tier 2 calcium homeostasis module for Alzheimer's disease ODE models.
+  Captures ER calcium release through IP3R/RyR, SERCA refilling, mitochondrial
+  uptake through MCU, PMCA-mediated extrusion, calbindin buffering, and
+  calcineurin activation by elevated cytosolic calcium.
+mechanism: "Calcium Dysregulation"
+notes: "Tier: 2. Compartments constrained to Neuron, ER, and Mitochondria."
+
+compartments:
+  - name: Neuron
+    volume_parameter: V_Neuron
+    volume_value: 0.0005
+    volume_units: L
+    notes: "Neuronal cytosolic compartment for calcium signaling."
+  - name: ER
+    volume_parameter: V_ER
+    volume_value: 0.00005
+    volume_units: L
+    notes: "Endoplasmic reticulum calcium store."
+  - name: Mitochondria
+    volume_parameter: V_Mitochondria
+    volume_value: 0.0001
+    volume_units: L
+    notes: "Mitochondrial matrix calcium buffering compartment."
+
+species:
+  - name: Ca_cytosol_Neuron
+    initial_amount: 5.0e-11
+    units: mol
+    notes: "Resting cytosolic calcium pool (~100 nM scale in neuronal cytosol)."
+  - name: Ca_ER_ER
+    initial_amount: 2.0e-8
+    units: mol
+    notes: "ER calcium store (high relative to cytosol)."
+  - name: Ca_mito_Mitochondria
+    initial_amount: 1.0e-10
+    units: mol
+    notes: "Mitochondrial calcium pool."
+  - name: IP3R_ER
+    initial_amount: 2.5e-9
+    units: mol
+  - name: IP3R_open_ER
+    initial_amount: 2.0e-10
+    units: mol
+  - name: RyR_ER
+    initial_amount: 2.0e-9
+    units: mol
+  - name: RyR_open_ER
+    initial_amount: 1.5e-10
+    units: mol
+  - name: SERCA_ER
+    initial_amount: 3.0e-9
+    units: mol
+  - name: MCU_Mitochondria
+    initial_amount: 1.5e-9
+    units: mol
+  - name: PMCA_Neuron
+    initial_amount: 3.0e-9
+    units: mol
+  - name: CALBINDIN_Neuron
+    initial_amount: 8.0e-9
+    units: mol
+  - name: CALBINDIN_Ca_Neuron
+    initial_amount: 1.0e-9
+    units: mol
+  - name: CALCINEURIN_Neuron
+    initial_amount: 3.0e-9
+    units: mol
+  - name: CALCINEURIN_active_Neuron
+    initial_amount: 3.0e-10
+    units: mol
+
+reactions:
+  - name: Ca_Basal_Influx
+    reactants: []
+    products:
+      - Ca_cytosol_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_ca_influx_basal
+
+  - name: IP3R_Opening
+    reactants:
+      - IP3R_ER
+    products:
+      - IP3R_open_ER
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ip3r_open * ((Ca_cytosol_Neuron / V_Neuron)^n_ip3r) / (K_ip3r_act^n_ip3r + (Ca_cytosol_Neuron / V_Neuron)^n_ip3r)"
+    rate_parameters:
+      - k_ip3r_open
+      - K_ip3r_act
+      - n_ip3r
+      - V_Neuron
+
+  - name: IP3R_Closing
+    reactants:
+      - IP3R_open_ER
+    products:
+      - IP3R_ER
+    rate_type: MA
+    rate_parameters:
+      - k_ip3r_close
+
+  - name: RyR_Opening
+    reactants:
+      - RyR_ER
+    products:
+      - RyR_open_ER
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ryr_open * ((Ca_cytosol_Neuron / V_Neuron)^n_ryr) / (K_ryr_act^n_ryr + (Ca_cytosol_Neuron / V_Neuron)^n_ryr)"
+    rate_parameters:
+      - k_ryr_open
+      - K_ryr_act
+      - n_ryr
+      - V_Neuron
+
+  - name: RyR_Closing
+    reactants:
+      - RyR_open_ER
+    products:
+      - RyR_ER
+    rate_type: MA
+    rate_parameters:
+      - k_ryr_close
+
+  - name: ER_Ca_Release_via_IP3R
+    reactants:
+      - Ca_ER_ER
+    products:
+      - Ca_cytosol_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "Vmax_ip3r_rel * (IP3R_open_ER / IP3R_open_ref) * (Ca_ER_ER / V_ER) / (K_ip3r_rel + (Ca_ER_ER / V_ER))"
+    rate_parameters:
+      - Vmax_ip3r_rel
+      - IP3R_open_ref
+      - K_ip3r_rel
+      - V_ER
+
+  - name: ER_Ca_Release_via_RyR
+    reactants:
+      - Ca_ER_ER
+    products:
+      - Ca_cytosol_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "Vmax_ryr_rel * (RyR_open_ER / RyR_open_ref) * (Ca_ER_ER / V_ER) / (K_ryr_rel + (Ca_ER_ER / V_ER))"
+    rate_parameters:
+      - Vmax_ryr_rel
+      - RyR_open_ref
+      - K_ryr_rel
+      - V_ER
+
+  - name: ER_Ca_Leak_to_Cytosol
+    reactants:
+      - Ca_ER_ER
+    products:
+      - Ca_cytosol_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_er_leak
+
+  - name: SERCA_Uptake
+    reactants:
+      - Ca_cytosol_Neuron
+    products:
+      - Ca_ER_ER
+    rate_type: custom_conc_per_time
+    rate_equation: "Vmax_serca * (SERCA_ER / SERCA_ref) * ((Ca_cytosol_Neuron / V_Neuron)^n_serca) / (K_serca^n_serca + (Ca_cytosol_Neuron / V_Neuron)^n_serca)"
+    rate_parameters:
+      - Vmax_serca
+      - SERCA_ref
+      - K_serca
+      - n_serca
+      - V_Neuron
+
+  - name: SERCA_Synthesis
+    reactants: []
+    products:
+      - SERCA_ER
+    rate_type: MA
+    rate_parameters:
+      - k_serca_syn
+
+  - name: SERCA_Turnover
+    reactants:
+      - SERCA_ER
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_serca_deg
+
+  - name: MCU_Uptake
+    reactants:
+      - Ca_cytosol_Neuron
+    products:
+      - Ca_mito_Mitochondria
+    rate_type: custom_conc_per_time
+    rate_equation: "Vmax_mcu * (MCU_Mitochondria / MCU_ref) * ((Ca_cytosol_Neuron / V_Neuron)^n_mcu) / (K_mcu^n_mcu + (Ca_cytosol_Neuron / V_Neuron)^n_mcu)"
+    rate_parameters:
+      - Vmax_mcu
+      - MCU_ref
+      - K_mcu
+      - n_mcu
+      - V_Neuron
+
+  - name: Mito_Ca_Release_NCLX
+    reactants:
+      - Ca_mito_Mitochondria
+    products:
+      - Ca_cytosol_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_nclx
+
+  - name: MCU_Synthesis
+    reactants: []
+    products:
+      - MCU_Mitochondria
+    rate_type: MA
+    rate_parameters:
+      - k_mcu_syn
+
+  - name: MCU_Turnover
+    reactants:
+      - MCU_Mitochondria
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_mcu_deg
+
+  - name: PMCA_Extrusion
+    reactants:
+      - Ca_cytosol_Neuron
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "Vmax_pmca * (PMCA_Neuron / PMCA_ref) * (Ca_cytosol_Neuron / V_Neuron) / (K_pmca + (Ca_cytosol_Neuron / V_Neuron))"
+    rate_parameters:
+      - Vmax_pmca
+      - PMCA_ref
+      - K_pmca
+      - V_Neuron
+
+  - name: PMCA_Synthesis
+    reactants: []
+    products:
+      - PMCA_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_pmca_syn
+
+  - name: PMCA_Turnover
+    reactants:
+      - PMCA_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_pmca_deg
+
+  - name: CALBINDIN_Ca_Binding
+    reactants:
+      - Ca_cytosol_Neuron
+      - CALBINDIN_Neuron
+    products:
+      - CALBINDIN_Ca_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_calbindin_on
+
+  - name: CALBINDIN_Ca_Unbinding
+    reactants:
+      - CALBINDIN_Ca_Neuron
+    products:
+      - Ca_cytosol_Neuron
+      - CALBINDIN_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_calbindin_off
+
+  - name: CALCINEURIN_Activation_by_Ca
+    reactants:
+      - CALCINEURIN_Neuron
+    products:
+      - CALCINEURIN_active_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_calcineurin_act * (CALCINEURIN_Neuron / V_Neuron) * ((Ca_cytosol_Neuron / V_Neuron)^n_calcineurin) / (K_calcineurin^n_calcineurin + (Ca_cytosol_Neuron / V_Neuron)^n_calcineurin)"
+    rate_parameters:
+      - k_calcineurin_act
+      - K_calcineurin
+      - n_calcineurin
+      - V_Neuron
+
+  - name: CALCINEURIN_Deactivation
+    reactants:
+      - CALCINEURIN_active_Neuron
+    products:
+      - CALCINEURIN_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_calcineurin_deact
+
+parameters:
+  - name: V_Neuron
+    value: 0.0005
+    units: L
+    confidence: assumed
+    source: "compartment definition"
+
+  - name: V_ER
+    value: 0.00005
+    units: L
+    confidence: assumed
+    source: "compartment definition"
+
+  - name: V_Mitochondria
+    value: 0.0001
+    units: L
+    confidence: assumed
+    source: "compartment definition"
+
+  - name: k_ca_influx_basal
+    value: 5.0e-12
+    units: mol/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal calcium dysregulation section"
+
+  - name: k_ip3r_open
+    value: 0.6
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal calcium dysregulation section"
+  - name: K_ip3r_act
+    value: 2.0e-7
+    units: mol/L
+    confidence: measured
+    source: "strategy_synaptic_neuronal calcium dysregulation section"
+  - name: n_ip3r
+    value: 2.0
+    units: dimensionless
+    confidence: assumed
+    source: "Hill gating assumption"
+  - name: k_ip3r_close
+    value: 0.8
+    units: 1/hr
+    confidence: estimated
+    source: "calcium channel closing timescale"
+
+  - name: k_ryr_open
+    value: 0.5
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal calcium dysregulation section"
+  - name: K_ryr_act
+    value: 2.5e-7
+    units: mol/L
+    confidence: estimated
+    source: "calcium-induced calcium release scale"
+  - name: n_ryr
+    value: 2.0
+    units: dimensionless
+    confidence: assumed
+    source: "Hill gating assumption"
+  - name: k_ryr_close
+    value: 0.7
+    units: 1/hr
+    confidence: estimated
+    source: "calcium channel closing timescale"
+
+  - name: Vmax_ip3r_rel
+    value: 1.0e-6
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal calcium dysregulation section"
+  - name: K_ip3r_rel
+    value: 4.0e-4
+    units: mol/L
+    confidence: measured
+    source: "ER luminal Ca release saturation scale"
+  - name: IP3R_open_ref
+    value: 2.0e-10
+    units: mol
+    confidence: assumed
+    source: "initial open IP3R amount"
+
+  - name: Vmax_ryr_rel
+    value: 8.0e-7
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal calcium dysregulation section"
+  - name: K_ryr_rel
+    value: 4.0e-4
+    units: mol/L
+    confidence: measured
+    source: "ER luminal Ca release saturation scale"
+  - name: RyR_open_ref
+    value: 1.5e-10
+    units: mol
+    confidence: assumed
+    source: "initial open RyR amount"
+
+  - name: k_er_leak
+    value: 0.02
+    units: 1/hr
+    confidence: estimated
+    source: "passive ER leak assumption"
+
+  - name: Vmax_serca
+    value: 1.0e-6
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal calcium dysregulation section"
+  - name: K_serca
+    value: 2.0e-7
+    units: mol/L
+    confidence: measured
+    source: "strategy_synaptic_neuronal calcium dysregulation section"
+  - name: n_serca
+    value: 2.0
+    units: dimensionless
+    confidence: assumed
+    source: "SERCA cooperative uptake"
+  - name: SERCA_ref
+    value: 3.0e-9
+    units: mol
+    confidence: assumed
+    source: "initial SERCA amount"
+  - name: k_serca_syn
+    value: 2.0e-10
+    units: mol/hr
+    confidence: assumed
+    source: "homeostatic protein synthesis"
+  - name: k_serca_deg
+    value: 0.04
+    units: 1/hr
+    confidence: assumed
+    source: "homeostatic protein turnover"
+
+  - name: Vmax_mcu
+    value: 5.0e-7
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal calcium dysregulation section"
+  - name: K_mcu
+    value: 5.0e-7
+    units: mol/L
+    confidence: measured
+    source: "strategy_synaptic_neuronal calcium dysregulation section"
+  - name: n_mcu
+    value: 2.0
+    units: dimensionless
+    confidence: assumed
+    source: "MCU cooperative uptake"
+  - name: MCU_ref
+    value: 1.5e-9
+    units: mol
+    confidence: assumed
+    source: "initial MCU amount"
+  - name: k_nclx
+    value: 0.2
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal calcium dysregulation section"
+  - name: k_mcu_syn
+    value: 1.5e-10
+    units: mol/hr
+    confidence: assumed
+    source: "homeostatic protein synthesis"
+  - name: k_mcu_deg
+    value: 0.04
+    units: 1/hr
+    confidence: assumed
+    source: "homeostatic protein turnover"
+
+  - name: Vmax_pmca
+    value: 8.0e-7
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal calcium dysregulation section"
+  - name: K_pmca
+    value: 3.0e-7
+    units: mol/L
+    confidence: estimated
+    source: "strategy_synaptic_neuronal calcium dysregulation section"
+  - name: PMCA_ref
+    value: 3.0e-9
+    units: mol
+    confidence: assumed
+    source: "initial PMCA amount"
+  - name: k_pmca_syn
+    value: 2.0e-10
+    units: mol/hr
+    confidence: assumed
+    source: "homeostatic protein synthesis"
+  - name: k_pmca_deg
+    value: 0.04
+    units: 1/hr
+    confidence: assumed
+    source: "homeostatic protein turnover"
+
+  - name: k_calbindin_on
+    value: 5.0e5
+    units: 1/mol/hr
+    confidence: estimated
+    source: "calbindin fast-binding approximation"
+  - name: k_calbindin_off
+    value: 1.0
+    units: 1/hr
+    confidence: estimated
+    source: "calbindin dissociation timescale"
+
+  - name: k_calcineurin_act
+    value: 0.6
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal LTP/LTD calcineurin context"
+  - name: K_calcineurin
+    value: 3.0e-7
+    units: mol/L
+    confidence: estimated
+    source: "calcineurin calcium sensitivity scale"
+  - name: n_calcineurin
+    value: 2.0
+    units: dimensionless
+    confidence: assumed
+    source: "cooperative calcium activation assumption"
+  - name: k_calcineurin_deact
+    value: 0.3
+    units: 1/hr
+    confidence: estimated
+    source: "calcineurin deactivation timescale"
+
+evidence:
+  - pmid: "18055230"
+    source: "Bhatt et al. calcium hypothesis context"
+    supports: "AD-linked calcium dysregulation and synaptic signaling"
+  - pmid: "20107439"
+    source: "Presenilin-associated ER calcium dysregulation"
+    supports: "ER release sensitization relevance"
+  - pmid: "17684022"
+    source: "Amyloid-beta and calcium disturbance"
+    supports: "pathophysiologic calcium overload context"

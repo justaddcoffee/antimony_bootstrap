@@ -1,0 +1,386 @@
+name: metal_homeostasis
+description: >
+  Tier 3 metal homeostasis module for Alzheimer's disease ODE models.
+  Captures neuronal and interstitial copper, zinc, and iron handling,
+  metallothionein buffering, APP/AB42 metal complexation, Fe2+-driven
+  Fenton chemistry, and a lipid-ROS ferroptosis proxy.
+mechanism: "Metal Homeostasis"
+notes: "Tier: 3. Compartments constrained to Neuron and BrainISF."
+
+compartments:
+  - name: Neuron
+    volume_parameter: V_Neuron
+    volume_value: 0.0005
+    volume_units: L
+    notes: "Neuronal intracellular compartment for metal buffering and redox reactions."
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.25
+    volume_units: L
+    notes: "Brain interstitial fluid compartment for extracellular metal pools and AB42 metal complexation."
+
+species:
+  - name: Cu_free_Neuron
+    initial_amount: 2.0e-10
+    units: mol
+  - name: Cu_free_BrainISF
+    initial_amount: 1.2e-8
+    units: mol
+  - name: Cu_bound_Neuron
+    initial_amount: 8.0e-10
+    units: mol
+    notes: "Lumped MT3-bound copper pool."
+  - name: Zn_free_Neuron
+    initial_amount: 3.0e-9
+    units: mol
+  - name: Zn_free_BrainISF
+    initial_amount: 8.0e-8
+    units: mol
+  - name: Zn_bound_Neuron
+    initial_amount: 1.5e-8
+    units: mol
+    notes: "Lumped MT3-bound zinc pool."
+  - name: Fe2_Neuron
+    initial_amount: 1.0e-9
+    units: mol
+  - name: Fe3_Neuron
+    initial_amount: 6.0e-9
+    units: mol
+  - name: Fe3_BrainISF
+    initial_amount: 3.0e-8
+    units: mol
+  - name: FERRITIN_Neuron
+    initial_amount: 2.0e-8
+    units: mol
+  - name: TRANSFERRIN_BrainISF
+    initial_amount: 4.0e-8
+    units: mol
+  - name: MT3_Neuron
+    initial_amount: 1.0e-8
+    units: mol
+  - name: APP_Neuron
+    initial_amount: 2.0e-8
+    units: mol
+  - name: APP_Cu_Neuron
+    initial_amount: 5.0e-10
+    units: mol
+  - name: AB42_BrainISF
+    initial_amount: 1.0e-9
+    units: mol
+    notes: "Shared AB42 monomer pool used by aggregation/transport modules."
+  - name: AB42_Cu_BrainISF
+    initial_amount: 1.0e-10
+    units: mol
+  - name: AB42_Zn_BrainISF
+    initial_amount: 1.0e-10
+    units: mol
+  - name: LipidROS_Neuron
+    initial_amount: 2.0e-10
+    units: mol
+    notes: "Lipid-peroxidation proxy linking metal redox chemistry to ferroptosis-like stress."
+
+reactions:
+  - name: Cu_Import_BrainISF_to_Neuron
+    reactants:
+      - Cu_free_BrainISF
+    products:
+      - Cu_free_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_cu_import
+    notes: "Net neuronal copper uptake from extracellular pool."
+
+  - name: Cu_Export_Neuron_to_BrainISF
+    reactants:
+      - Cu_free_Neuron
+    products:
+      - Cu_free_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_cu_export
+    notes: "Net neuronal copper efflux (ATP7A/B-lumped)."
+
+  - name: Zn_Import_BrainISF_to_Neuron
+    reactants:
+      - Zn_free_BrainISF
+    products:
+      - Zn_free_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_zn_import
+    notes: "Net neuronal zinc uptake from extracellular pool."
+
+  - name: Zn_Export_Neuron_to_BrainISF
+    reactants:
+      - Zn_free_Neuron
+    products:
+      - Zn_free_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_zn_export
+    notes: "Net neuronal zinc efflux (ZnT-lumped)."
+
+  - name: Fe3_Import_via_Transferrin
+    reactants:
+      - Fe3_BrainISF
+    products:
+      - Fe3_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_fe_import * (TRANSFERRIN_BrainISF / Transferrin_ref) * (Fe3_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_fe_import
+      - Transferrin_ref
+      - V_BrainISF
+    notes: "Transferrin-modulated ferric iron uptake proxy (TfR endocytosis collapsed)."
+
+  - name: Ferritin_Sequestration_Fe3
+    reactants:
+      - Fe3_Neuron
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ferritin_store * (FERRITIN_Neuron / Ferritin_ref) * (Fe3_Neuron / V_Neuron)"
+    rate_parameters:
+      - k_ferritin_store
+      - Ferritin_ref
+      - V_Neuron
+    notes: "Ferritin-dependent sequestration of labile ferric iron."
+
+  - name: Fe3_Reduction_to_Fe2
+    reactants:
+      - Fe3_Neuron
+    products:
+      - Fe2_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "Vmax_fe3_reduct * (Fe3_Neuron / V_Neuron) / (Km_fe3_reduct + (Fe3_Neuron / V_Neuron))"
+    rate_parameters:
+      - Vmax_fe3_reduct
+      - Km_fe3_reduct
+      - V_Neuron
+    notes: "Lumped cellular reduction regenerating redox-active ferrous iron."
+
+  - name: Fe2_Fenton_Oxidation
+    reactants:
+      - Fe2_Neuron
+    products:
+      - Fe3_Neuron
+      - LipidROS_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_fenton * (Fe2_Neuron / V_Neuron)"
+    rate_parameters:
+      - k_fenton
+      - V_Neuron
+    notes: "Fe2+-driven Fenton-like chemistry producing lipid ROS burden."
+
+  - name: MT3_Binding_Cu
+    reactants:
+      - Cu_free_Neuron
+      - MT3_Neuron
+    products:
+      - Cu_bound_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_mt3_bind_cu
+
+  - name: MT3_Binding_Zn
+    reactants:
+      - Zn_free_Neuron
+      - MT3_Neuron
+    products:
+      - Zn_bound_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_mt3_bind_zn
+
+  - name: MT3_Release_Cu
+    reactants:
+      - Cu_bound_Neuron
+    products:
+      - Cu_free_Neuron
+      - MT3_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_mt3_release_cu
+
+  - name: APP_Cu_Complexation
+    reactants:
+      - APP_Neuron
+      - Cu_free_Neuron
+    products:
+      - APP_Cu_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_app_cu_bind
+    notes: "APP copper binding linked to APP ferroxidase axis."
+
+  - name: AB42_Cu_Complexation
+    reactants:
+      - AB42_BrainISF
+      - Cu_free_BrainISF
+    products:
+      - AB42_Cu_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_ab42_cu_bind
+
+  - name: AB42_Zn_Complexation
+    reactants:
+      - AB42_BrainISF
+      - Zn_free_BrainISF
+    products:
+      - AB42_Zn_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_ab42_zn_bind
+
+  - name: Ferroptosis_Progression
+    reactants:
+      - LipidROS_Neuron
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ferroptosis * (LipidROS_Neuron / V_Neuron) * (1 + alpha_ab42_cu * (AB42_Cu_BrainISF / V_BrainISF))"
+    rate_parameters:
+      - k_ferroptosis
+      - alpha_ab42_cu
+      - V_Neuron
+      - V_BrainISF
+    notes: "Lipid-ROS sink representing ferroptosis-linked neuronal damage burden."
+
+parameters:
+  - name: V_Neuron
+    value: 0.0005
+    units: L
+    confidence: assumed
+    source: "Matches Neuron compartment volume_value"
+
+  - name: V_BrainISF
+    value: 0.25
+    units: L
+    confidence: assumed
+    source: "Matches BrainISF compartment volume_value"
+
+  - name: k_cu_import
+    value: 0.08
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_module_decomposition Tier-3 metal_homeostasis scope"
+
+  - name: k_cu_export
+    value: 0.05
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_module_decomposition Tier-3 metal_homeostasis scope"
+
+  - name: k_zn_import
+    value: 0.10
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_module_decomposition Tier-3 metal_homeostasis scope"
+
+  - name: k_zn_export
+    value: 0.06
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_module_decomposition Tier-3 metal_homeostasis scope"
+
+  - name: k_fe_import
+    value: 0.04
+    units: 1/hr
+    confidence: estimated
+    source: "Transferrin-mediated iron uptake (lumped)"
+
+  - name: Transferrin_ref
+    value: 4.0e-8
+    units: mol
+    confidence: assumed
+    source: "Set to baseline TRANSFERRIN_BrainISF amount"
+
+  - name: k_ferritin_store
+    value: 0.20
+    units: 1/hr
+    confidence: estimated
+    source: "Ferritin buffering abstraction"
+
+  - name: Ferritin_ref
+    value: 2.0e-8
+    units: mol
+    confidence: assumed
+    source: "Set to baseline FERRITIN_Neuron amount"
+
+  - name: Vmax_fe3_reduct
+    value: 2.0e-6
+    units: mol/L/hr
+    confidence: estimated
+    source: "Cellular ferric reductase lumped kinetics"
+
+  - name: Km_fe3_reduct
+    value: 2.0e-5
+    units: mol/L
+    confidence: estimated
+    source: "Saturable ferric reduction proxy"
+
+  - name: k_fenton
+    value: 0.30
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress Fenton concept"
+
+  - name: k_mt3_bind_cu
+    value: 1.5e5
+    units: L/mol/hr
+    confidence: estimated
+    source: "Metallothionein high-affinity copper binding (lumped)"
+
+  - name: k_mt3_bind_zn
+    value: 8.0e4
+    units: L/mol/hr
+    confidence: estimated
+    source: "Metallothionein zinc buffering (lumped)"
+
+  - name: k_mt3_release_cu
+    value: 0.05
+    units: 1/hr
+    confidence: estimated
+    source: "MT3-bound copper remobilization"
+
+  - name: k_app_cu_bind
+    value: 2.0e4
+    units: L/mol/hr
+    confidence: estimated
+    source: "APP-copper interaction literature (lumped)"
+
+  - name: k_ab42_cu_bind
+    value: 1.0e5
+    units: L/mol/hr
+    confidence: estimated
+    source: "AB42-Cu complexation driver for ROS amplification"
+
+  - name: k_ab42_zn_bind
+    value: 7.0e4
+    units: L/mol/hr
+    confidence: estimated
+    source: "AB42-Zn complexation in extracellular space"
+
+  - name: k_ferroptosis
+    value: 0.08
+    units: 1/hr
+    confidence: estimated
+    source: "Ferroptosis proxy progression constant"
+
+  - name: alpha_ab42_cu
+    value: 1.5
+    units: L/mol
+    confidence: assumed
+    source: "Dimensionless amplification scaled by AB42_Cu concentration"
+
+evidence:
+  - pmid: "10521432"
+    source: "Huang et al."
+    supports: "ABeta-copper redox chemistry and ROS generation"
+  - pmid: "20817278"
+    source: "Duce et al."
+    supports: "APP ferroxidase function linked to neuronal iron export"
+  - pmid: "21456963"
+    source: "Amyloid cascade context"
+    supports: "AB42 extracellular pool as substrate for metal complexation"
+  - source: "plan/strategy_synaptic_neuronal.md"
+    supports: "Fenton chemistry and AB42-metal oxidative stress linkage"

@@ -1,0 +1,409 @@
+name: vascular_caa
+description: >
+  Tier 3 cerebral amyloid angiopathy (CAA) module for Alzheimer's disease ODE models.
+  Captures perivascular AB40/AB42 accumulation, smooth muscle cell (SMC) loss,
+  collagen-IV vessel wall remodeling, perivascular drainage impairment, and
+  downstream microhemorrhage risk escalation.
+mechanism: "Vascular and Blood-Brain Barrier Dysfunction"
+notes: "Tier: 3. Compartments constrained to Perivascular and BrainParenchyma."
+
+compartments:
+  - name: Perivascular
+    volume_parameter: V_Perivascular
+    volume_value: 0.03
+    volume_units: L
+    notes: "Perivascular/glymphatic drainage space where CAA deposition occurs."
+  - name: BrainParenchyma
+    volume_parameter: V_BrainParenchyma
+    volume_value: 1.0
+    volume_units: L
+    notes: "Brain tissue source pool feeding perivascular amyloid burden."
+
+species:
+  - name: AB40_BrainParenchyma
+    initial_amount: 1.2e-9
+    units: mol
+  - name: AB42_BrainParenchyma
+    initial_amount: 0.8e-9
+    units: mol
+  - name: AB40_Perivascular
+    initial_amount: 0.6e-9
+    units: mol
+  - name: AB42_Perivascular
+    initial_amount: 0.3e-9
+    units: mol
+  - name: AB40_CAA_Deposit_Perivascular
+    initial_amount: 0.05e-9
+    units: mol
+  - name: AB42_CAA_Deposit_Perivascular
+    initial_amount: 0.03e-9
+    units: mol
+  - name: SMC_Perivascular
+    initial_amount: 1.0
+    units: cell_equiv
+    notes: "Normalized smooth muscle cell state in the perivascular wall."
+  - name: COLLAGEN_IV_Perivascular
+    initial_amount: 1.0e-9
+    units: mol
+  - name: PERIVASCULAR_DrainageRate_Perivascular
+    initial_amount: 1.0
+    units: arb
+    notes: "Normalized drainage functionality (1 = baseline)."
+  - name: CAA_Severity_Perivascular
+    initial_amount: 0.05
+    units: arb
+    notes: "Normalized vascular amyloid angiopathy severity burden."
+  - name: MICROHEMORRHAGE_Risk_Perivascular
+    initial_amount: 0.02
+    units: arb
+
+reactions:
+  - name: AB40_Parenchyma_to_Perivascular
+    reactants:
+      - AB40_BrainParenchyma
+    products:
+      - AB40_Perivascular
+    rate_type: MA
+    rate_parameters:
+      - k_AB40_parenchyma_to_perivascular
+    notes: "Net AB40 transfer from tissue pool into perivascular space."
+
+  - name: AB42_Parenchyma_to_Perivascular
+    reactants:
+      - AB42_BrainParenchyma
+    products:
+      - AB42_Perivascular
+    rate_type: MA
+    rate_parameters:
+      - k_AB42_parenchyma_to_perivascular
+
+  - name: AB40_Perivascular_Drainage
+    reactants:
+      - AB40_Perivascular
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_AB40_pv_drain_base * (PERIVASCULAR_DrainageRate_Perivascular / DRAIN_ref) * (AB40_Perivascular / V_Perivascular)"
+    rate_parameters:
+      - k_AB40_pv_drain_base
+      - DRAIN_ref
+      - V_Perivascular
+
+  - name: AB42_Perivascular_Drainage
+    reactants:
+      - AB42_Perivascular
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_AB42_pv_drain_base * (PERIVASCULAR_DrainageRate_Perivascular / DRAIN_ref) * (AB42_Perivascular / V_Perivascular)"
+    rate_parameters:
+      - k_AB42_pv_drain_base
+      - DRAIN_ref
+      - V_Perivascular
+
+  - name: AB40_CAA_Deposition
+    reactants:
+      - AB40_Perivascular
+    products:
+      - AB40_CAA_Deposit_Perivascular
+    rate_type: custom_conc_per_time
+    rate_equation: "k_CAA_deposit_AB40 * (AB40_Perivascular / V_Perivascular) * max(0, 1 - (AB40_CAA_Deposit_Perivascular / CAA_capacity_AB40))"
+    rate_parameters:
+      - k_CAA_deposit_AB40
+      - V_Perivascular
+      - CAA_capacity_AB40
+
+  - name: AB42_CAA_Deposition
+    reactants:
+      - AB42_Perivascular
+    products:
+      - AB42_CAA_Deposit_Perivascular
+    rate_type: custom_conc_per_time
+    rate_equation: "k_CAA_deposit_AB42 * (AB42_Perivascular / V_Perivascular) * max(0, 1 - (AB42_CAA_Deposit_Perivascular / CAA_capacity_AB42))"
+    rate_parameters:
+      - k_CAA_deposit_AB42
+      - V_Perivascular
+      - CAA_capacity_AB42
+
+  - name: AB40_CAA_Remobilization
+    reactants:
+      - AB40_CAA_Deposit_Perivascular
+    products:
+      - AB40_Perivascular
+    rate_type: MA
+    rate_parameters:
+      - k_CAA_remobilize_AB40
+
+  - name: AB42_CAA_Remobilization
+    reactants:
+      - AB42_CAA_Deposit_Perivascular
+    products:
+      - AB42_Perivascular
+    rate_type: MA
+    rate_parameters:
+      - k_CAA_remobilize_AB42
+
+  - name: SMC_Repair
+    reactants: []
+    products:
+      - SMC_Perivascular
+    rate_type: custom_conc_per_time
+    rate_equation: "k_SMC_repair * max(0, 1 - (SMC_Perivascular / SMC_ref))"
+    rate_parameters:
+      - k_SMC_repair
+      - SMC_ref
+
+  - name: SMC_Loss_by_CAA
+    reactants:
+      - SMC_Perivascular
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_SMC_loss_CAA * (SMC_Perivascular / SMC_ref) * ((AB40_CAA_Deposit_Perivascular + AB42_CAA_Deposit_Perivascular) / V_Perivascular)"
+    rate_parameters:
+      - k_SMC_loss_CAA
+      - SMC_ref
+      - V_Perivascular
+
+  - name: COLLAGEN_IV_Basal_Synthesis
+    reactants: []
+    products:
+      - COLLAGEN_IV_Perivascular
+    rate_type: custom_conc_per_time
+    rate_equation: "k_COLLAGEN_IV_syn * (1 + alpha_COLLAGEN_CAA * (CAA_Severity_Perivascular / CAA_ref))"
+    rate_parameters:
+      - k_COLLAGEN_IV_syn
+      - alpha_COLLAGEN_CAA
+      - CAA_ref
+
+  - name: COLLAGEN_IV_Turnover
+    reactants:
+      - COLLAGEN_IV_Perivascular
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_COLLAGEN_IV_deg
+
+  - name: Drainage_Recovery
+    reactants: []
+    products:
+      - PERIVASCULAR_DrainageRate_Perivascular
+    rate_type: custom_conc_per_time
+    rate_equation: "k_drain_recovery * max(0, 1 - (PERIVASCULAR_DrainageRate_Perivascular / DRAIN_ref))"
+    rate_parameters:
+      - k_drain_recovery
+      - DRAIN_ref
+
+  - name: Drainage_Impairment_by_CAA
+    reactants:
+      - PERIVASCULAR_DrainageRate_Perivascular
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_drain_loss_CAA * (PERIVASCULAR_DrainageRate_Perivascular / DRAIN_ref) * (CAA_Severity_Perivascular / CAA_ref)"
+    rate_parameters:
+      - k_drain_loss_CAA
+      - DRAIN_ref
+      - CAA_ref
+
+  - name: CAA_Severity_Progression
+    reactants: []
+    products:
+      - CAA_Severity_Perivascular
+    rate_type: custom_conc_per_time
+    rate_equation: "k_CAA_severity_gain * ((AB40_CAA_Deposit_Perivascular + AB42_CAA_Deposit_Perivascular) / V_Perivascular) / CAA_load_ref"
+    rate_parameters:
+      - k_CAA_severity_gain
+      - V_Perivascular
+      - CAA_load_ref
+
+  - name: CAA_Severity_Resolution
+    reactants:
+      - CAA_Severity_Perivascular
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_CAA_severity_resolve
+
+  - name: Microhemorrhage_Risk_Gain
+    reactants: []
+    products:
+      - MICROHEMORRHAGE_Risk_Perivascular
+    rate_type: custom_conc_per_time
+    rate_equation: "k_microhemorrhage_gain * (CAA_Severity_Perivascular / CAA_ref) * max(0, 1 - (SMC_Perivascular / SMC_ref)) * (COLLAGEN_IV_Perivascular / COLLAGEN_ref)"
+    rate_parameters:
+      - k_microhemorrhage_gain
+      - CAA_ref
+      - SMC_ref
+      - COLLAGEN_ref
+
+  - name: Microhemorrhage_Risk_Resolution
+    reactants:
+      - MICROHEMORRHAGE_Risk_Perivascular
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_microhemorrhage_resolve
+
+parameters:
+  - name: k_AB40_parenchyma_to_perivascular
+    value: 0.015
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert flow motifs + Tier-3 vascular abstraction"
+
+  - name: k_AB42_parenchyma_to_perivascular
+    value: 0.012
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert flow motifs + Tier-3 vascular abstraction"
+
+  - name: k_AB40_pv_drain_base
+    value: 0.10
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_vascular_bbb.md (k_PVS_drain_baseline 0.05-0.2 1/hr)"
+
+  - name: k_AB42_pv_drain_base
+    value: 0.08
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_vascular_bbb.md (k_PVS_drain_baseline 0.05-0.2 1/hr)"
+
+  - name: k_CAA_deposit_AB40
+    value: 0.008
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_vascular_bbb.md (k_CAA_deposit 0.001-0.01 1/hr)"
+
+  - name: k_CAA_deposit_AB42
+    value: 0.005
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_vascular_bbb.md (k_CAA_deposit 0.001-0.01 1/hr)"
+
+  - name: CAA_capacity_AB40
+    value: 4.0e-7
+    units: mol
+    confidence: assumed
+    source: "strategy_vascular_bbb.md (CAA_capacity 100-1000 nmol)"
+
+  - name: CAA_capacity_AB42
+    value: 2.0e-7
+    units: mol
+    confidence: assumed
+    source: "strategy_vascular_bbb.md (CAA_capacity 100-1000 nmol)"
+
+  - name: k_CAA_remobilize_AB40
+    value: 0.0008
+    units: 1/hr
+    confidence: assumed
+    source: "slow reverse mobilization placeholder"
+
+  - name: k_CAA_remobilize_AB42
+    value: 0.0005
+    units: 1/hr
+    confidence: assumed
+    source: "slow reverse mobilization placeholder"
+
+  - name: k_SMC_repair
+    value: 0.002
+    units: 1/hr
+    confidence: assumed
+    source: "slow vascular smooth muscle renewal"
+
+  - name: k_SMC_loss_CAA
+    value: 0.06
+    units: L/(mol*hr)
+    confidence: assumed
+    source: "CAA toxicity scaling; calibrated placeholder"
+
+  - name: SMC_ref
+    value: 1.0
+    units: arb
+    confidence: assumed
+    source: "normalized baseline"
+
+  - name: k_COLLAGEN_IV_syn
+    value: 0.015
+    units: mol/(L*hr)
+    confidence: assumed
+    source: "remodeling baseline placeholder"
+
+  - name: alpha_COLLAGEN_CAA
+    value: 0.7
+    units: dimensionless
+    confidence: estimated
+    source: "strategy_vascular_bbb.md (alpha_CAA 0.5-0.9)"
+
+  - name: k_COLLAGEN_IV_deg
+    value: 0.01
+    units: 1/hr
+    confidence: assumed
+    source: "basement membrane turnover placeholder"
+
+  - name: k_drain_recovery
+    value: 0.01
+    units: 1/hr
+    confidence: assumed
+    source: "baseline repair/compensation"
+
+  - name: k_drain_loss_CAA
+    value: 0.04
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_vascular_bbb.md impaired drainage relation"
+
+  - name: DRAIN_ref
+    value: 1.0
+    units: arb
+    confidence: assumed
+    source: "normalized baseline"
+
+  - name: k_CAA_severity_gain
+    value: 0.12
+    units: 1/hr
+    confidence: assumed
+    source: "phenomenologic burden integration term"
+
+  - name: k_CAA_severity_resolve
+    value: 0.003
+    units: 1/hr
+    confidence: assumed
+    source: "slow structural remission placeholder"
+
+  - name: CAA_ref
+    value: 1.0
+    units: arb
+    confidence: assumed
+    source: "normalized severe state"
+
+  - name: CAA_load_ref
+    value: 2.0e-7
+    units: mol/L
+    confidence: assumed
+    source: "concentration scaling constant"
+
+  - name: COLLAGEN_ref
+    value: 1.0e-9
+    units: mol
+    confidence: assumed
+    source: "baseline vessel-wall collagen state"
+
+  - name: k_microhemorrhage_gain
+    value: 0.03
+    units: 1/hr
+    confidence: assumed
+    source: "phenomenologic escalation coefficient"
+
+  - name: k_microhemorrhage_resolve
+    value: 0.01
+    units: 1/hr
+    confidence: assumed
+    source: "risk normalization placeholder"
+
+evidence:
+  - pmid: "22896675"
+    source: "Iliff et al. 2012"
+    supports: "Perivascular/glymphatic drainage role in amyloid clearance"
+  - pmid: "19714646"
+    source: "Weller et al. 2009"
+    supports: "CAA-driven impairment of perivascular drainage"
+  - source: "plan/strategy_vascular_bbb.md"
+    supports: "CAA deposition, drainage impairment, and vessel integrity degradation formulations"

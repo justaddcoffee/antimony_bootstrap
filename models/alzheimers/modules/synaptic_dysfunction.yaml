@@ -1,0 +1,761 @@
+name: synaptic_dysfunction
+description: >
+  Tier 2 synaptic dysfunction module for Alzheimer's disease ODE models.
+  Captures AB42 oligomer-driven synapse loss, BDNF-TrkB-CREB-ARC signaling,
+  AMPAR/NMDAR receptor trafficking, glutamatergic stress, and LTP/LTD balance
+  in Synapse and Neuron compartments.
+mechanism: "Synaptic Dysfunction"
+notes: "Tier: 2. Compartments constrained to Synapse and Neuron."
+
+compartments:
+  - name: Synapse
+    volume_parameter: V_Synapse
+    volume_value: 0.0001
+    volume_units: L
+    notes: "Synaptic microenvironment (cleft + postsynaptic density proxy)."
+  - name: Neuron
+    volume_parameter: V_Neuron
+    volume_value: 0.0005
+    volume_units: L
+    notes: "Intraneuronal signaling compartment coupled to synaptic state."
+
+species:
+  - name: SYNAPSE_density_Synapse
+    initial_amount: 8.0e-10
+    units: mol
+  - name: PSD95_Synapse
+    initial_amount: 2.0e-9
+    units: mol
+  - name: AMPAR_Synapse
+    initial_amount: 3.0e-9
+    units: mol
+  - name: NMDAR_Synapse
+    initial_amount: 1.5e-9
+    units: mol
+  - name: BDNF_Synapse
+    initial_amount: 1.2e-10
+    units: mol
+  - name: TrkB_Synapse
+    initial_amount: 4.0e-10
+    units: mol
+  - name: glutamate_syn_Synapse
+    initial_amount: 2.0e-9
+    units: mol
+  - name: CREB_Neuron
+    initial_amount: 2.0e-10
+    units: mol
+  - name: ARC_Neuron
+    initial_amount: 2.0e-10
+    units: mol
+  - name: LTP_Synapse
+    initial_amount: 6.0e-10
+    units: mol
+  - name: LTD_Synapse
+    initial_amount: 2.0e-10
+    units: mol
+  - name: AB42o_Synapse
+    initial_amount: 1.0e-10
+    units: mol
+  - name: AMPAR_endo_Neuron
+    initial_amount: 5.0e-10
+    units: mol
+  - name: CaMKII_active_Neuron
+    initial_amount: 2.5e-10
+    units: mol
+  - name: Calcineurin_active_Neuron
+    initial_amount: 1.5e-10
+    units: mol
+
+reactions:
+  - name: AB42o_Input
+    reactants: []
+    products:
+      - AB42o_Synapse
+    rate_type: MA
+    rate_parameters:
+      - k_ab42o_input
+
+  - name: AB42o_Clearance
+    reactants:
+      - AB42o_Synapse
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_ab42o_clear
+
+  - name: Glutamate_Release
+    reactants: []
+    products:
+      - glutamate_syn_Synapse
+    rate_type: custom_conc_per_time
+    rate_equation: "k_glu_release * (1 + alpha_activity_LTP * (LTP_Synapse / V_Synapse))"
+    rate_parameters:
+      - k_glu_release
+      - alpha_activity_LTP
+      - V_Synapse
+
+  - name: Glutamate_Clearance
+    reactants:
+      - glutamate_syn_Synapse
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_glu_clear
+
+  - name: BDNF_Production_by_CREB
+    reactants: []
+    products:
+      - BDNF_Synapse
+    rate_type: custom_conc_per_time
+    rate_equation: "k_bdnf_prod * ((CREB_Neuron / V_Neuron) / (K_CREB_BDNF + (CREB_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_bdnf_prod
+      - K_CREB_BDNF
+      - V_Neuron
+
+  - name: BDNF_Degradation
+    reactants:
+      - BDNF_Synapse
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_bdnf_deg
+
+  - name: TrkB_Activation_by_BDNF
+    reactants: []
+    products:
+      - TrkB_Synapse
+    rate_type: custom_conc_per_time
+    rate_equation: "k_trkb_act * ((BDNF_Synapse / V_Synapse) / (K_BDNF_TrkB + (BDNF_Synapse / V_Synapse))) * (TrkB_capacity - (TrkB_Synapse / V_Synapse))"
+    rate_parameters:
+      - k_trkb_act
+      - K_BDNF_TrkB
+      - TrkB_capacity
+      - V_Synapse
+
+  - name: TrkB_Deactivation
+    reactants:
+      - TrkB_Synapse
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_trkb_deact
+
+  - name: CREB_Activation_by_TrkB_CaMKII
+    reactants: []
+    products:
+      - CREB_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_creb_act * ((TrkB_Synapse / V_Synapse) / (K_TrkB_CREB + (TrkB_Synapse / V_Synapse))) * ((CaMKII_active_Neuron / V_Neuron) / (K_CaMKII_CREB + (CaMKII_active_Neuron / V_Neuron))) * (CREB_capacity - (CREB_Neuron / V_Neuron))"
+    rate_parameters:
+      - k_creb_act
+      - K_TrkB_CREB
+      - K_CaMKII_CREB
+      - CREB_capacity
+      - V_Synapse
+      - V_Neuron
+
+  - name: CREB_Deactivation_by_Calcineurin
+    reactants:
+      - CREB_Neuron
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_creb_deact * (CREB_Neuron / V_Neuron) * (1 + alpha_calcineurin_CREB * (Calcineurin_active_Neuron / V_Neuron))"
+    rate_parameters:
+      - k_creb_deact
+      - alpha_calcineurin_CREB
+      - V_Neuron
+
+  - name: ARC_Expression_by_CREB
+    reactants: []
+    products:
+      - ARC_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_arc_prod * ((CREB_Neuron / V_Neuron) / (K_CREB_ARC + (CREB_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_arc_prod
+      - K_CREB_ARC
+      - V_Neuron
+
+  - name: ARC_Degradation
+    reactants:
+      - ARC_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_arc_deg
+
+  - name: PSD95_Synthesis_by_CREB_ARC
+    reactants: []
+    products:
+      - PSD95_Synapse
+    rate_type: custom_conc_per_time
+    rate_equation: "k_psd95_syn * ((CREB_Neuron / V_Neuron) / (K_CREB_PSD95 + (CREB_Neuron / V_Neuron))) * ((ARC_Neuron / V_Neuron) / (K_ARC_PSD95 + (ARC_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_psd95_syn
+      - K_CREB_PSD95
+      - K_ARC_PSD95
+      - V_Neuron
+
+  - name: PSD95_Degradation_by_AB42
+    reactants:
+      - PSD95_Synapse
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_psd95_deg_ab42 * (PSD95_Synapse / V_Synapse) * ((AB42o_Synapse / V_Synapse) / (K_AB42_PSD95 + (AB42o_Synapse / V_Synapse)))"
+    rate_parameters:
+      - k_psd95_deg_ab42
+      - K_AB42_PSD95
+      - V_Synapse
+
+  - name: AMPAR_Synthesis_by_ARC_PSD95
+    reactants: []
+    products:
+      - AMPAR_Synapse
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ampar_insert * ((ARC_Neuron / V_Neuron) / (K_ARC_AMPAR + (ARC_Neuron / V_Neuron))) * ((PSD95_Synapse / V_Synapse) / (K_PSD95_AMPAR + (PSD95_Synapse / V_Synapse)))"
+    rate_parameters:
+      - k_ampar_insert
+      - K_ARC_AMPAR
+      - K_PSD95_AMPAR
+      - V_Neuron
+      - V_Synapse
+
+  - name: AMPAR_Endocytosis_by_AB42
+    reactants:
+      - AMPAR_Synapse
+    products:
+      - AMPAR_endo_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ampar_endo * (AMPAR_Synapse / V_Synapse) * ((AB42o_Synapse / V_Synapse) / (K_AB42_AMPAR_endo + (AB42o_Synapse / V_Synapse))) * (1 + alpha_glu_AMPAR_endo * (glutamate_syn_Synapse / V_Synapse))"
+    rate_parameters:
+      - k_ampar_endo
+      - K_AB42_AMPAR_endo
+      - alpha_glu_AMPAR_endo
+      - V_Synapse
+
+  - name: AMPAR_Recycling
+    reactants:
+      - AMPAR_endo_Neuron
+    products:
+      - AMPAR_Synapse
+    rate_type: MA
+    rate_parameters:
+      - k_ampar_recycle
+
+  - name: AMPAR_Endosomal_Degradation
+    reactants:
+      - AMPAR_endo_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_ampar_endo_deg
+
+  - name: NMDAR_Synthesis_by_PSD95
+    reactants: []
+    products:
+      - NMDAR_Synapse
+    rate_type: custom_conc_per_time
+    rate_equation: "k_nmdar_syn * ((PSD95_Synapse / V_Synapse) / (K_PSD95_NMDAR + (PSD95_Synapse / V_Synapse)))"
+    rate_parameters:
+      - k_nmdar_syn
+      - K_PSD95_NMDAR
+      - V_Synapse
+
+  - name: NMDAR_Internalization_by_AB42
+    reactants:
+      - NMDAR_Synapse
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_nmdar_int * (NMDAR_Synapse / V_Synapse) * ((AB42o_Synapse / V_Synapse) / (K_AB42_NMDAR_int + (AB42o_Synapse / V_Synapse)))"
+    rate_parameters:
+      - k_nmdar_int
+      - K_AB42_NMDAR_int
+      - V_Synapse
+
+  - name: CaMKII_Activation_by_Glutamate_NMDAR
+    reactants: []
+    products:
+      - CaMKII_active_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_camkii_act * (((glutamate_syn_Synapse / V_Synapse)^2) / (K_glu_camkii^2 + (glutamate_syn_Synapse / V_Synapse)^2)) * ((NMDAR_Synapse / V_Synapse) / (K_NMDAR_camkii + (NMDAR_Synapse / V_Synapse))) * (CaMKII_capacity - (CaMKII_active_Neuron / V_Neuron))"
+    rate_parameters:
+      - k_camkii_act
+      - K_glu_camkii
+      - K_NMDAR_camkii
+      - CaMKII_capacity
+      - V_Synapse
+      - V_Neuron
+
+  - name: CaMKII_Deactivation
+    reactants:
+      - CaMKII_active_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_camkii_deact
+
+  - name: Calcineurin_Activation_by_AB42_NMDAR
+    reactants: []
+    products:
+      - Calcineurin_active_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_calcineurin_act * ((AB42o_Synapse / V_Synapse) / (K_AB42_calcineurin + (AB42o_Synapse / V_Synapse))) * ((NMDAR_Synapse / V_Synapse) / (K_NMDAR_calcineurin + (NMDAR_Synapse / V_Synapse))) * (Calcineurin_capacity - (Calcineurin_active_Neuron / V_Neuron))"
+    rate_parameters:
+      - k_calcineurin_act
+      - K_AB42_calcineurin
+      - K_NMDAR_calcineurin
+      - Calcineurin_capacity
+      - V_Synapse
+      - V_Neuron
+
+  - name: Calcineurin_Deactivation
+    reactants:
+      - Calcineurin_active_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_calcineurin_deact
+
+  - name: LTP_Induction
+    reactants: []
+    products:
+      - LTP_Synapse
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ltp * ((CaMKII_active_Neuron / V_Neuron) / (K_CaMKII_LTP + (CaMKII_active_Neuron / V_Neuron))) * ((AMPAR_Synapse / V_Synapse) / (K_AMPAR_LTP + (AMPAR_Synapse / V_Synapse))) * (LTP_capacity - (LTP_Synapse / V_Synapse))"
+    rate_parameters:
+      - k_ltp
+      - K_CaMKII_LTP
+      - K_AMPAR_LTP
+      - LTP_capacity
+      - V_Neuron
+      - V_Synapse
+
+  - name: LTP_Decay
+    reactants:
+      - LTP_Synapse
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ltp_decay * (LTP_Synapse / V_Synapse) * (1 + alpha_AB42_LTP_decay * (AB42o_Synapse / V_Synapse))"
+    rate_parameters:
+      - k_ltp_decay
+      - alpha_AB42_LTP_decay
+      - V_Synapse
+
+  - name: LTD_Induction
+    reactants: []
+    products:
+      - LTD_Synapse
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ltd * ((Calcineurin_active_Neuron / V_Neuron) / (K_Calcineurin_LTD + (Calcineurin_active_Neuron / V_Neuron))) * ((AB42o_Synapse / V_Synapse) / (K_AB42_LTD + (AB42o_Synapse / V_Synapse))) * (LTD_capacity - (LTD_Synapse / V_Synapse))"
+    rate_parameters:
+      - k_ltd
+      - K_Calcineurin_LTD
+      - K_AB42_LTD
+      - LTD_capacity
+      - V_Neuron
+      - V_Synapse
+
+  - name: LTD_Decay
+    reactants:
+      - LTD_Synapse
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_ltd_decay
+
+  - name: Synapse_Elimination_by_AB42_LTD
+    reactants:
+      - SYNAPSE_density_Synapse
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_synapse_elim * (SYNAPSE_density_Synapse / V_Synapse) * ((AB42o_Synapse / V_Synapse) / (K_AB42_synaptotoxic + (AB42o_Synapse / V_Synapse))) * (1 + alpha_LTD_synapse * (LTD_Synapse / V_Synapse))"
+    rate_parameters:
+      - k_synapse_elim
+      - K_AB42_synaptotoxic
+      - alpha_LTD_synapse
+      - V_Synapse
+
+  - name: Synapse_Recovery_by_BDNF_LTP
+    reactants: []
+    products:
+      - SYNAPSE_density_Synapse
+    rate_type: custom_conc_per_time
+    rate_equation: "k_synapse_recover * ((BDNF_Synapse / V_Synapse) / (K_BDNF_synapse + (BDNF_Synapse / V_Synapse))) * ((LTP_Synapse / V_Synapse) / (K_LTP_synapse + (LTP_Synapse / V_Synapse))) * (SYNAPSE_capacity - (SYNAPSE_density_Synapse / V_Synapse))"
+    rate_parameters:
+      - k_synapse_recover
+      - K_BDNF_synapse
+      - K_LTP_synapse
+      - SYNAPSE_capacity
+      - V_Synapse
+
+parameters:
+  - name: k_ab42o_input
+    value: 5.0e-10
+    units: mol/hr
+    confidence: assumed
+    source: "module initialization"
+  - name: k_ab42o_clear
+    value: 0.12
+    units: 1/hr
+    confidence: estimated
+    source: "synaptic oligomer turnover assumption"
+
+  - name: k_glu_release
+    value: 0.5
+    units: nM/hr
+    confidence: estimated
+    source: "plan/strategy_synaptic_neuronal.md excitotoxicity section"
+  - name: alpha_activity_LTP
+    value: 0.4
+    units: 1/nM
+    confidence: assumed
+    source: "module coupling assumption"
+  - name: k_glu_clear
+    value: 1.2
+    units: 1/hr
+    confidence: estimated
+    source: "plan/strategy_synaptic_neuronal.md excitotoxicity section"
+
+  - name: k_bdnf_prod
+    value: 0.25
+    units: nM/hr
+    confidence: estimated
+    source: "BDNF trophic support scaling"
+  - name: K_CREB_BDNF
+    value: 5.0
+    units: nM
+    confidence: estimated
+    source: "CREB-dependent transcription half-saturation assumption"
+  - name: k_bdnf_deg
+    value: 0.18
+    units: 1/hr
+    confidence: estimated
+    source: "neurotrophin turnover estimate"
+
+  - name: k_trkb_act
+    value: 0.8
+    units: 1/hr
+    confidence: estimated
+    source: "BDNF-TrkB activation timescale"
+  - name: K_BDNF_TrkB
+    value: 1.5
+    units: nM
+    confidence: estimated
+    source: "TrkB ligand binding scale"
+  - name: TrkB_capacity
+    value: 20.0
+    units: nM
+    confidence: assumed
+    source: "module initialization"
+  - name: k_trkb_deact
+    value: 0.6
+    units: 1/hr
+    confidence: estimated
+    source: "receptor desensitization estimate"
+
+  - name: k_creb_act
+    value: 0.7
+    units: 1/hr
+    confidence: estimated
+    source: "CREB phosphorylation timescale"
+  - name: K_TrkB_CREB
+    value: 5.0
+    units: nM
+    confidence: estimated
+    source: "signal transduction half-saturation assumption"
+  - name: K_CaMKII_CREB
+    value: 4.0
+    units: nM
+    confidence: estimated
+    source: "signal transduction half-saturation assumption"
+  - name: CREB_capacity
+    value: 30.0
+    units: nM
+    confidence: assumed
+    source: "module initialization"
+  - name: k_creb_deact
+    value: 0.35
+    units: 1/hr
+    confidence: estimated
+    source: "phosphatase-driven CREB deactivation estimate"
+  - name: alpha_calcineurin_CREB
+    value: 0.08
+    units: 1/nM
+    confidence: estimated
+    source: "calcineurin antagonism scaling"
+
+  - name: k_arc_prod
+    value: 0.4
+    units: nM/hr
+    confidence: estimated
+    source: "activity-dependent ARC expression estimate"
+  - name: K_CREB_ARC
+    value: 4.0
+    units: nM
+    confidence: estimated
+    source: "transcriptional half-saturation assumption"
+  - name: k_arc_deg
+    value: 0.2
+    units: 1/hr
+    confidence: estimated
+    source: "ARC turnover estimate"
+
+  - name: k_psd95_syn
+    value: 0.3
+    units: nM/hr
+    confidence: estimated
+    source: "postsynaptic scaffold maintenance estimate"
+  - name: K_CREB_PSD95
+    value: 4.0
+    units: nM
+    confidence: estimated
+    source: "transcriptional half-saturation assumption"
+  - name: K_ARC_PSD95
+    value: 3.5
+    units: nM
+    confidence: estimated
+    source: "ARC-assisted scaffold insertion assumption"
+  - name: k_psd95_deg_ab42
+    value: 0.12
+    units: 1/hr
+    confidence: estimated
+    source: "AB42-dependent scaffold destabilization estimate"
+  - name: K_AB42_PSD95
+    value: 4.384272591292935
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/synaptic_dysfunction.json"
+    evidence:
+      - source: "PMC10418207; PMC3012091; PMC3713518; PMC4648621"
+        snippet: "endogenous Aβ42 concentrates in synaptosomes from end-stage AD brains to ~10 nM"
+        supports: "AB42 synaptic toxicity concentration scale"
+
+  - name: k_ampar_insert
+    value: 0.5
+    units: nM/hr
+    confidence: estimated
+    source: "AMPAR membrane insertion estimate"
+  - name: K_ARC_AMPAR
+    value: 3.0
+    units: nM
+    confidence: estimated
+    source: "ARC-dependent trafficking half-saturation"
+  - name: K_PSD95_AMPAR
+    value: 5.0
+    units: nM
+    confidence: estimated
+    source: "PSD95-dependent docking half-saturation"
+  - name: k_ampar_endo
+    value: 0.02
+    units: 1/hr
+    confidence: estimated
+    source: "plan/strategy_synaptic_neuronal.md ltp_ltd section"
+  - name: K_AB42_AMPAR_endo
+    value: 4.384272591292935
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/synaptic_dysfunction.json"
+  - name: alpha_glu_AMPAR_endo
+    value: 0.03
+    units: 1/nM
+    confidence: estimated
+    source: "activity-stress coupling assumption"
+  - name: k_ampar_recycle
+    value: 0.1
+    units: 1/hr
+    confidence: estimated
+    source: "plan/strategy_synaptic_neuronal.md ltp_ltd section"
+  - name: k_ampar_endo_deg
+    value: 0.08
+    units: 1/hr
+    confidence: estimated
+    source: "endosomal degradation estimate"
+
+  - name: k_nmdar_syn
+    value: 0.25
+    units: nM/hr
+    confidence: estimated
+    source: "receptor replenishment estimate"
+  - name: K_PSD95_NMDAR
+    value: 4.0
+    units: nM
+    confidence: estimated
+    source: "PSD95-dependent receptor anchoring assumption"
+  - name: k_nmdar_int
+    value: 0.07
+    units: 1/hr
+    confidence: estimated
+    source: "AB42-driven receptor internalization estimate"
+  - name: K_AB42_NMDAR_int
+    value: 4.384272591292935
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/synaptic_dysfunction.json"
+
+  - name: k_camkii_act
+    value: 0.9
+    units: 1/hr
+    confidence: estimated
+    source: "plan/strategy_synaptic_neuronal.md ltp_ltd section"
+  - name: K_glu_camkii
+    value: 5000.0
+    units: nM
+    confidence: estimated
+    source: "plan/strategy_synaptic_neuronal.md excitotoxicity section"
+  - name: K_NMDAR_camkii
+    value: 6.0
+    units: nM
+    confidence: estimated
+    source: "NMDAR signaling half-saturation estimate"
+  - name: CaMKII_capacity
+    value: 40.0
+    units: nM
+    confidence: assumed
+    source: "module initialization"
+  - name: k_camkii_deact
+    value: 0.45
+    units: 1/hr
+    confidence: estimated
+    source: "CaMKII phosphatase inactivation estimate"
+
+  - name: k_calcineurin_act
+    value: 0.55
+    units: 1/hr
+    confidence: estimated
+    source: "calcineurin activation estimate"
+  - name: K_AB42_calcineurin
+    value: 4.384272591292935
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/synaptic_dysfunction.json"
+  - name: K_NMDAR_calcineurin
+    value: 5.0
+    units: nM
+    confidence: estimated
+    source: "NMDAR signaling half-saturation estimate"
+  - name: Calcineurin_capacity
+    value: 35.0
+    units: nM
+    confidence: assumed
+    source: "module initialization"
+  - name: k_calcineurin_deact
+    value: 0.4
+    units: 1/hr
+    confidence: estimated
+    source: "calcineurin inactivation estimate"
+
+  - name: k_ltp
+    value: 0.5
+    units: 1/hr
+    confidence: estimated
+    source: "plan/strategy_synaptic_neuronal.md ltp_ltd section"
+  - name: K_CaMKII_LTP
+    value: 4.0
+    units: nM
+    confidence: estimated
+    source: "LTP induction half-saturation estimate"
+  - name: K_AMPAR_LTP
+    value: 6.0
+    units: nM
+    confidence: estimated
+    source: "AMPAR dependence of LTP estimate"
+  - name: LTP_capacity
+    value: 30.0
+    units: nM
+    confidence: assumed
+    source: "module initialization"
+  - name: k_ltp_decay
+    value: 0.1
+    units: 1/hr
+    confidence: estimated
+    source: "plan/strategy_synaptic_neuronal.md ltp_ltd section"
+  - name: alpha_AB42_LTP_decay
+    value: 0.05
+    units: 1/nM
+    confidence: estimated
+    source: "AB42-dependent LTP suppression scaling"
+
+  - name: k_ltd
+    value: 0.3
+    units: 1/hr
+    confidence: estimated
+    source: "plan/strategy_synaptic_neuronal.md ltp_ltd section"
+  - name: K_Calcineurin_LTD
+    value: 4.0
+    units: nM
+    confidence: estimated
+    source: "LTD induction half-saturation estimate"
+  - name: K_AB42_LTD
+    value: 4.384272591292935
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/synaptic_dysfunction.json"
+  - name: LTD_capacity
+    value: 30.0
+    units: nM
+    confidence: assumed
+    source: "module initialization"
+  - name: k_ltd_decay
+    value: 0.05
+    units: 1/hr
+    confidence: estimated
+    source: "plan/strategy_synaptic_neuronal.md ltp_ltd section"
+
+  - name: k_synapse_elim
+    value: 0.05
+    units: 1/hr
+    confidence: estimated
+    source: "plan/strategy_synaptic_neuronal.md synaptic loss section"
+  - name: K_AB42_synaptotoxic
+    value: 4.384272591292935
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/synaptic_dysfunction.json"
+    evidence:
+      - source: "data/parameters/module/synaptic_dysfunction.json"
+        snippet: "endogenous Aβ42 ... reach ~10 nM ... inhibits γ-secretase"
+        supports: "Synaptic AB42 toxicity concentration scale"
+  - name: alpha_LTD_synapse
+    value: 0.1
+    units: 1/nM
+    confidence: estimated
+    source: "LTD-potentiated pruning scaling"
+  - name: k_synapse_recover
+    value: 0.001
+    units: 1/hr
+    confidence: estimated
+    source: "plan/strategy_synaptic_neuronal.md synaptic loss section"
+  - name: K_BDNF_synapse
+    value: 2.0
+    units: nM
+    confidence: estimated
+    source: "BDNF restorative signaling half-saturation estimate"
+  - name: K_LTP_synapse
+    value: 2.0
+    units: nM
+    confidence: estimated
+    source: "LTP-dependent structural recovery estimate"
+  - name: SYNAPSE_capacity
+    value: 15.0
+    units: nM
+    confidence: assumed
+    source: "module initialization"
+
+evidence:
+  - pmid: "11832226"
+    source: "Selkoe 2002"
+    snippet: "Soluble Aβ species impair synaptic plasticity and neuronal function."
+    supports: "AB42-driven synaptic dysfunction mechanism"
+  - pmid: "18568035"
+    source: "Shankar et al. 2008"
+    snippet: "Aβ oligomers inhibit hippocampal long-term potentiation."
+    supports: "LTP suppression by oligomeric Aβ"
+  - pmid: "21471363"
+    source: "Li et al. 2011"
+    snippet: "Aβ oligomers facilitate LTD and inhibit LTP."
+    supports: "LTP/LTD imbalance structure"
+  - pmid: "18055230"
+    source: "Bhatt et al. 2009"
+    snippet: "NMDAR-calcineurin signaling contributes to synaptic impairment."
+    supports: "NMDAR/CaMKII/calcineurin signaling terms"

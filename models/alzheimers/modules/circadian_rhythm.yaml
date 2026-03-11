@@ -1,0 +1,357 @@
+name: circadian_rhythm
+description: >
+  Tier 4 exploratory circadian rhythm module for Alzheimer's disease ODE models.
+  Captures a reduced neuronal clock core (BMAL1/CLOCK drive, PER2-CRY1 negative
+  feedback, REV-ERBa repression), melatonin-orexin sleep-wake signaling, and an
+  assignment-rule output for glymphatic flow that can modulate AB clearance.
+mechanism: "Circadian Rhythm and Sleep-Wake Regulation"
+notes: "Tier: 4 (exploratory). Output species glymphatic_flow_rate_BrainISF is intended to couple into AB clearance modules."
+
+compartments:
+  - name: Neuron
+    volume_parameter: V_Neuron
+    volume_value: 0.0005
+    volume_units: L
+    notes: "Neuronal circadian oscillator and sleep-wake signal generation."
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.25
+    volume_units: L
+    notes: "Brain interstitial fluid compartment receiving glymphatic output signal."
+
+species:
+  - name: BMAL1_Neuron
+    initial_amount: 1.2e-10
+    units: mol
+    notes: "Core clock transcription factor (held as a slowly varying driver in this reduced module)."
+  - name: CLOCK_Neuron
+    initial_amount: 1.0e-10
+    units: mol
+    notes: "Core clock partner factor (driver pool for BMAL1:CLOCK activity)."
+  - name: PER2_Neuron
+    initial_amount: 8.0e-11
+    units: mol
+  - name: CRY1_Neuron
+    initial_amount: 6.0e-11
+    units: mol
+  - name: REV_ERBa_Neuron
+    initial_amount: 5.0e-11
+    units: mol
+  - name: melatonin_Neuron
+    initial_amount: 2.0e-11
+    units: mol
+  - name: orexin_Neuron
+    initial_amount: 1.5e-11
+    units: mol
+  - name: glymphatic_flow_rate_BrainISF
+    initial_amount: 8.101366791213009e-03
+    units: L/hr
+    notes: "Module output: higher during sleep-like (high melatonin/low orexin) states."
+
+reactions:
+  - name: PER2_Synthesis_by_CLOCK_BMAL1
+    reactants:
+      - BMAL1_Neuron
+      - CLOCK_Neuron
+    products:
+      - BMAL1_Neuron
+      - CLOCK_Neuron
+      - PER2_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_syn_PER2_max * (((BMAL1_Neuron / V_Neuron) * (CLOCK_Neuron / V_Neuron)) / (K_act_CLOCK_BMAL1 + (BMAL1_Neuron / V_Neuron) * (CLOCK_Neuron / V_Neuron))) * (K_inh_CRY1_on_PER2 / (K_inh_CRY1_on_PER2 + (CRY1_Neuron / V_Neuron))) * (K_inh_REV_on_PER2 / (K_inh_REV_on_PER2 + (REV_ERBa_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_syn_PER2_max
+      - K_act_CLOCK_BMAL1
+      - K_inh_CRY1_on_PER2
+      - K_inh_REV_on_PER2
+      - V_Neuron
+
+  - name: PER2_Degradation
+    reactants:
+      - PER2_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_deg_PER2
+
+  - name: CRY1_Synthesis_by_PER2
+    reactants:
+      - PER2_Neuron
+    products:
+      - PER2_Neuron
+      - CRY1_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_syn_CRY1_max * ((PER2_Neuron / V_Neuron) / (K_act_PER2_on_CRY1 + (PER2_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_syn_CRY1_max
+      - K_act_PER2_on_CRY1
+      - V_Neuron
+
+  - name: CRY1_Degradation
+    reactants:
+      - CRY1_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_deg_CRY1
+
+  - name: REV_ERBa_Synthesis_by_CLOCK_BMAL1
+    reactants:
+      - BMAL1_Neuron
+      - CLOCK_Neuron
+    products:
+      - BMAL1_Neuron
+      - CLOCK_Neuron
+      - REV_ERBa_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_syn_REV_ERBa_max * (((BMAL1_Neuron / V_Neuron) * (CLOCK_Neuron / V_Neuron)) / (K_act_CLOCK_BMAL1_on_REV + (BMAL1_Neuron / V_Neuron) * (CLOCK_Neuron / V_Neuron))) * (K_inh_CRY1_on_REV / (K_inh_CRY1_on_REV + (CRY1_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_syn_REV_ERBa_max
+      - K_act_CLOCK_BMAL1_on_REV
+      - K_inh_CRY1_on_REV
+      - V_Neuron
+
+  - name: REV_ERBa_Degradation
+    reactants:
+      - REV_ERBa_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_deg_REV_ERBa
+
+  - name: Melatonin_Synthesis_by_PER2
+    reactants:
+      - PER2_Neuron
+    products:
+      - PER2_Neuron
+      - melatonin_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_syn_melatonin_max * (((PER2_Neuron / V_Neuron)^n_PER2_melatonin) / (K_act_PER2_melatonin^n_PER2_melatonin + (PER2_Neuron / V_Neuron)^n_PER2_melatonin)) * (K_inh_orexin_on_melatonin / (K_inh_orexin_on_melatonin + (orexin_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_syn_melatonin_max
+      - K_act_PER2_melatonin
+      - n_PER2_melatonin
+      - K_inh_orexin_on_melatonin
+      - V_Neuron
+
+  - name: Melatonin_Degradation
+    reactants:
+      - melatonin_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_deg_melatonin
+
+  - name: Orexin_Synthesis_by_CLOCK_BMAL1
+    reactants:
+      - CLOCK_Neuron
+    products:
+      - CLOCK_Neuron
+      - orexin_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_syn_orexin_max * (((BMAL1_Neuron / V_Neuron) * (CLOCK_Neuron / V_Neuron)) / (K_act_CLOCK_BMAL1_on_orexin + (BMAL1_Neuron / V_Neuron) * (CLOCK_Neuron / V_Neuron))) * (K_inh_melatonin_on_orexin / (K_inh_melatonin_on_orexin + (melatonin_Neuron / V_Neuron))) * (K_inh_REV_on_orexin / (K_inh_REV_on_orexin + (REV_ERBa_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_syn_orexin_max
+      - K_act_CLOCK_BMAL1_on_orexin
+      - K_inh_melatonin_on_orexin
+      - K_inh_REV_on_orexin
+      - V_Neuron
+
+  - name: Orexin_Degradation
+    reactants:
+      - orexin_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_deg_orexin
+
+parameters:
+  - name: V_Neuron
+    value: 0.0005
+    units: L
+    confidence: measured
+    source: "Module compartment specification (Neuron volume)."
+
+  - name: V_BrainISF
+    value: 0.25
+    units: L
+    confidence: measured
+    source: "Module compartment specification (BrainISF volume)."
+
+  - name: k_syn_PER2_max
+    value: 2.5e-01
+    units: mol/L/hr
+    confidence: estimated
+    source: "Reduced mammalian TTFL abstraction; tuned to support ~24 h oscillatory timescale."
+
+  - name: K_act_CLOCK_BMAL1
+    value: 1.0e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory scaling."
+
+  - name: K_inh_CRY1_on_PER2
+    value: 8.0e-08
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory scaling."
+
+  - name: K_inh_REV_on_PER2
+    value: 6.0e-08
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory scaling."
+
+  - name: k_deg_PER2
+    value: 2.3e-01
+    units: 1/hr
+    confidence: estimated
+    source: "Circadian PER protein turnover range (order-of-magnitude literature)."
+
+  - name: k_syn_CRY1_max
+    value: 1.8e-01
+    units: mol/L/hr
+    confidence: estimated
+    source: "Reduced mammalian TTFL abstraction."
+
+  - name: K_act_PER2_on_CRY1
+    value: 1.0e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory scaling."
+
+  - name: k_deg_CRY1
+    value: 1.7e-01
+    units: 1/hr
+    confidence: estimated
+    source: "Circadian CRY protein turnover range (order-of-magnitude literature)."
+
+  - name: k_syn_REV_ERBa_max
+    value: 1.4e-01
+    units: mol/L/hr
+    confidence: estimated
+    source: "Reduced BMAL1:CLOCK -> REV-ERBa transcriptional arm."
+
+  - name: K_act_CLOCK_BMAL1_on_REV
+    value: 1.0e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory scaling."
+
+  - name: K_inh_CRY1_on_REV
+    value: 8.0e-08
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory scaling."
+
+  - name: k_deg_REV_ERBa
+    value: 1.4e-01
+    units: 1/hr
+    confidence: estimated
+    source: "Circadian REV-ERBa turnover range (order-of-magnitude literature)."
+
+  - name: k_syn_melatonin_max
+    value: 4.0e-06
+    units: mol/L/hr
+    confidence: estimated
+    source: "Nocturnal melatonin drive abstraction for sleep-state signaling."
+
+  - name: K_act_PER2_melatonin
+    value: 1.2e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory scaling linking clock phase to melatonin synthesis."
+
+  - name: n_PER2_melatonin
+    value: 2.0
+    units: dimensionless
+    confidence: assumed
+    source: "Hill nonlinearity for phase gating."
+
+  - name: K_inh_orexin_on_melatonin
+    value: 4.0e-08
+    units: mol/L
+    confidence: assumed
+    source: "Reciprocal sleep/wake antagonism abstraction."
+
+  - name: k_deg_melatonin
+    value: 3.5e-01
+    units: 1/hr
+    confidence: estimated
+    source: "Melatonin short half-life timescale abstraction."
+
+  - name: k_syn_orexin_max
+    value: 3.0e-06
+    units: mol/L/hr
+    confidence: estimated
+    source: "Wake-drive orexin production abstraction."
+
+  - name: K_act_CLOCK_BMAL1_on_orexin
+    value: 1.0e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory scaling."
+
+  - name: K_inh_melatonin_on_orexin
+    value: 5.0e-08
+    units: mol/L
+    confidence: assumed
+    source: "Reciprocal sleep/wake antagonism abstraction."
+
+  - name: K_inh_REV_on_orexin
+    value: 7.0e-08
+    units: mol/L
+    confidence: assumed
+    source: "Clock-output repression coupling (exploratory)."
+
+  - name: k_deg_orexin
+    value: 1.2e-01
+    units: 1/hr
+    confidence: estimated
+    source: "Orexin turnover timescale abstraction."
+
+  - name: Q_glymph_base
+    value: 8.101366791213009e-03
+    units: L/hr
+    confidence: estimated
+    source: "Elbert_Esguerra_model_v2026b antimony parameter Q_glymph (Antimony_elbert_Esguerra_noSILK_1a_parameters.txt)."
+
+  - name: alpha_melatonin_glymph
+    value: 1.2
+    units: dimensionless
+    confidence: assumed
+    source: "Sleep-associated glymphatic enhancement abstraction."
+
+  - name: alpha_orexin_glymph
+    value: 6.0e-01
+    units: dimensionless
+    confidence: assumed
+    source: "Wake-associated glymphatic suppression abstraction."
+
+  - name: K_melatonin_glymph
+    value: 5.0e-08
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory sensitivity scale."
+
+  - name: K_orexin_glymph
+    value: 5.0e-08
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory sensitivity scale."
+
+rules:
+  - name: GlymphaticFlowAssignment
+    equation: "glymphatic_flow_rate_BrainISF = Q_glymph_base * (1 + alpha_melatonin_glymph * ((melatonin_Neuron / V_Neuron) / (K_melatonin_glymph + (melatonin_Neuron / V_Neuron))) - alpha_orexin_glymph * ((orexin_Neuron / V_Neuron) / (K_orexin_glymph + (orexin_Neuron / V_Neuron))))"
+    notes: "Expose dynamic glymphatic flow output for downstream AB clearance coupling."
+
+evidence:
+  - doi: "10.1038/nrg.2016.150"
+    source: "Takahashi JS. Transcriptional architecture of the mammalian circadian clock."
+    supports: "Core TTFL structure using BMAL1/CLOCK activation and PER/CRY/REV feedback motifs."
+  - doi: "10.1126/science.1241224"
+    source: "Xie et al. Sleep drives metabolite clearance from the adult brain."
+    supports: "Sleep-linked increase in interstitial clearance motivates glymphatic modulation output."
+  - source: "Elbert_Esguerra_model_v2026b/antimony_models/Antimony_elbert_Esguerra_noSILK_1a_parameters.txt"
+    snippet: "Q_glymph = 0.008101366791213009"
+    supports: "Baseline glymphatic flow scale used for Q_glymph_base."

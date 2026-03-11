@@ -40,6 +40,7 @@ class EvidenceRef(BaseModel):
     doi: Optional[str] = None
     source: Optional[str] = None  # Free text source description
     snippet: Optional[str] = None  # Quoted text from the source
+    supports: Optional[str] = None  # What this evidence supports (e.g., "Michaelis-Menten form", "k2 * monomer^n2 term")
 
 
 class CompartmentSpec(BaseModel):
@@ -97,7 +98,8 @@ class ReactionSpec(BaseModel):
     rate_type: RateType = RateType.MA
     rate_equation: Optional[str] = None  # For custom rate types
     rate_parameters: list[str] = Field(default_factory=list)  # Parameter names used
-    evidence: list[EvidenceRef] = Field(default_factory=list)
+    evidence: list[EvidenceRef] = Field(default_factory=list)  # Evidence for the reaction itself
+    rate_law_evidence: list[EvidenceRef] = Field(default_factory=list)  # Evidence for rate equation form and terms
     notes: Optional[str] = None
 
     def to_reaction_dict(self) -> dict:

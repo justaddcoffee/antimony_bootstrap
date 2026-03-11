@@ -1,0 +1,299 @@
+name: tau_aggregation
+description: >
+  Tier 1 tau aggregation module for Alzheimer's disease ODE models.
+  Encodes neuronal p-tau nucleation, oligomer growth, PHF formation,
+  NFT deposition, seeded aggregation, and local prion-like seed amplification.
+mechanism: "Tau Pathology"
+notes: "Tier: 1 (core). Single-compartment neuronal aggregation cascade with seed-driven propagation terms."
+
+compartments:
+  - name: Neuron
+    volume_parameter: V_Neuron
+    volume_value: 0.5
+    volume_units: L
+    notes: "Intracellular neuronal compartment for tau aggregation state transitions."
+
+species:
+  - name: PTAU_MULTI_Neuron
+    initial_amount: 5.0e-9
+    units: mol
+    notes: "Input pool from tau_phosphorylation module."
+  - name: PTAU_monomer_Neuron
+    initial_amount: 1.0e-8
+    units: mol
+  - name: PTAU_oligomer_Neuron
+    initial_amount: 1.0e-9
+    units: mol
+  - name: PTAU_PHF_Neuron
+    initial_amount: 1.0e-10
+    units: mol
+  - name: NFT_Neuron
+    initial_amount: 5.0e-11
+    units: mol
+  - name: TAU_seeds_Neuron
+    initial_amount: 5.0e-11
+    units: mol
+
+reactions:
+  - name: PTAU_Monomer_Input_from_MultisitePool
+    reactants:
+      - PTAU_MULTI_Neuron
+    products:
+      - PTAU_monomer_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_ptau_release_multi
+    notes: "Feeds aggregation-competent monomer pool from hyperphosphorylated tau."
+
+  - name: PTAU_PrimaryNucleation_to_Oligomer
+    reactants:
+      - PTAU_monomer_Neuron
+    products:
+      - PTAU_oligomer_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_nuc_tau * ((PTAU_monomer_Neuron / V_Neuron)^n_nuc_tau)"
+    rate_parameters:
+      - k_nuc_tau
+      - n_nuc_tau
+      - V_Neuron
+    notes: "Nucleation-elongation primary nucleation term."
+
+  - name: PTAU_SeededNucleation_to_Oligomer
+    reactants:
+      - PTAU_monomer_Neuron
+      - TAU_seeds_Neuron
+    products:
+      - PTAU_oligomer_Neuron
+      - TAU_seeds_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_seed_tau * (PTAU_monomer_Neuron / V_Neuron) * (TAU_seeds_Neuron / V_Neuron)"
+    rate_parameters:
+      - k_seed_tau
+      - V_Neuron
+    notes: "Templated conversion representing seeded aggregation."
+
+  - name: PTAU_Oligomer_Elongation_to_PHF
+    reactants:
+      - PTAU_oligomer_Neuron
+      - PTAU_monomer_Neuron
+    products:
+      - PTAU_PHF_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_elong_tau * (PTAU_oligomer_Neuron / V_Neuron) * (PTAU_monomer_Neuron / V_Neuron)"
+    rate_parameters:
+      - k_elong_tau
+      - V_Neuron
+    notes: "Second-order elongation term informed by tau fiber elongation kinetics."
+
+  - name: PTAU_PHF_Maturation_to_NFT
+    reactants:
+      - PTAU_PHF_Neuron
+    products:
+      - NFT_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_nft_mat
+    notes: "Slow maturation/deposition of PHF into NFT burden."
+
+  - name: PTAU_Oligomer_Disaggregation_to_Monomer
+    reactants:
+      - PTAU_oligomer_Neuron
+    products:
+      - PTAU_monomer_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_disagg_tau
+    notes: "Metastable oligomer reversal to monomeric p-tau."
+
+  - name: PTAU_PHF_Fragmentation_to_Oligomer
+    reactants:
+      - PTAU_PHF_Neuron
+    products:
+      - PTAU_oligomer_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_frag_phf
+    notes: "Fragmentation regenerates oligomeric seeds/precursors."
+
+  - name: TAU_Seed_Release_from_Oligomer
+    reactants:
+      - PTAU_oligomer_Neuron
+    products:
+      - TAU_seeds_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_seed_release_oligo
+    notes: "Seed shedding from soluble oligomers."
+
+  - name: TAU_Seed_Release_from_PHF
+    reactants:
+      - PTAU_PHF_Neuron
+    products:
+      - TAU_seeds_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_seed_release_phf
+    notes: "Seed shedding from filament pool."
+
+  - name: TAU_Seed_Amplification_from_NFT
+    reactants:
+      - NFT_Neuron
+    products:
+      - NFT_Neuron
+      - TAU_seeds_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_seed_amplification * (NFT_Neuron / V_Neuron)"
+    rate_parameters:
+      - k_seed_amplification
+      - V_Neuron
+    notes: "Prion-like multiplication term where established tangles amplify seed burden."
+
+  - name: PTAU_Seeded_PHF_to_NFT_Deposition
+    reactants:
+      - PTAU_PHF_Neuron
+      - TAU_seeds_Neuron
+    products:
+      - NFT_Neuron
+      - TAU_seeds_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_seeded_nft * (PTAU_PHF_Neuron / V_Neuron) * ((TAU_seeds_Neuron / V_Neuron) / (K_seed_tau + (TAU_seeds_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_seeded_nft
+      - K_seed_tau
+      - V_Neuron
+    notes: "Seed-facilitated PHF conversion into irreversible NFT state."
+
+  - name: TAU_Seed_Import
+    reactants: []
+    products:
+      - TAU_seeds_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_seed_influx
+    notes: "Effective inflow from connected regions (prion-like spreading input)."
+
+  - name: TAU_Seed_Clearance
+    reactants:
+      - TAU_seeds_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_seed_clear
+
+  - name: NFT_Clearance
+    reactants:
+      - NFT_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_nft_clear
+
+parameters:
+  - name: V_Neuron
+    value: 0.5
+    units: L
+    confidence: measured
+    source: "Module compartment specification (Neuron volume)"
+
+  - name: k_ptau_release_multi
+    value: 0.02
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (link from phosphorylation pool to aggregation monomer input)"
+
+  - name: k_nuc_tau
+    value: 2.0e4
+    units: L/mol/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (nucleation range 1e-6 to 1e-4 in nM-scaled form; converted for mol/L concentrations)"
+  - name: n_nuc_tau
+    value: 2.0
+    units: dimensionless
+    confidence: estimated
+    source: "strategy_tau_pathology.md (dimeric nucleation assumption)"
+
+  - name: k_seed_tau
+    value: 5.0e3
+    units: L/mol/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md + data/parameters/module/tau_aggregation.json (seeded aggregation context)"
+
+  - name: k_elong_tau
+    value: 7.2e8
+    units: L/mol/hr
+    confidence: estimated
+    source: "data/parameters/module/tau_aggregation.json (elongation rate_constant evidence; 2e5 M^-1 s^-1 scaled to hr^-1)"
+
+  - name: k_nft_mat
+    value: 2.0e-3
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (PHF to NFT maturation range)"
+
+  - name: k_disagg_tau
+    value: 5.0e-3
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (oligomer metastability/disaggregation)"
+
+  - name: k_frag_phf
+    value: 2.0e-3
+    units: 1/hr
+    confidence: assumed
+    source: "Tier 1 closure term"
+
+  - name: k_seed_release_oligo
+    value: 3.0e-3
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (seed release concept from oligomer pool)"
+
+  - name: k_seed_release_phf
+    value: 1.0e-3
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (seed release concept from filament pool)"
+
+  - name: k_seed_amplification
+    value: 4.0e-3
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (prion-like amplification mechanism)"
+
+  - name: k_seeded_nft
+    value: 8.0e-3
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (seeded deposition acceleration)"
+
+  - name: K_seed_tau
+    value: 3.0e-7
+    units: mol/L
+    confidence: estimated
+    source: "data/parameters/module/tau_aggregation.json (unspecified elongation parameter ~314 nM)"
+
+  - name: k_seed_influx
+    value: 1.0e-12
+    units: mol/hr
+    confidence: assumed
+    source: "Tier 1 boundary-condition term for external seeding"
+
+  - name: k_seed_clear
+    value: 0.08
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (seed clearance order-of-magnitude)"
+
+  - name: k_nft_clear
+    value: 1.0e-4
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_tau_pathology.md (slow NFT turnover over years)"
+
+evidence:
+  - source: "strategy_tau_pathology.md"
+    supports: "tau aggregation cascade structure (nucleation, elongation, PHF maturation, NFT deposition, seeding)"
+  - source: "data/parameters/module/tau_aggregation.json"
+    supports: "elongation scale, seed-related affinity/IC50 context"
+  - source: "../Elbert_Esguerra_model_v2026b/antimony_models/"
+    supports: "rate-law compatibility and naming conventions used in Antimony model export"

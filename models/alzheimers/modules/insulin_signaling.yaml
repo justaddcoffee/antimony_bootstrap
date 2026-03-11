@@ -1,0 +1,522 @@
+name: insulin_signaling
+description: >
+  Tier 3 neuronal insulin-signaling module for Alzheimer's disease ODE models.
+  Captures insulin receptor activation, IRS1 state switching, PI3K/AKT signaling,
+  AKT-mediated inhibition of GSK3B and FOXO, mTOR activation with IRS1 feedback,
+  and IDE regulation coupled to AB42 degradation.
+mechanism: "Insulin Signaling"
+notes: "Tier: 3. Compartment constrained to Neuron."
+
+compartments:
+  - name: Neuron
+    volume_parameter: V_Neuron
+    volume_value: 0.0005
+    volume_units: L
+    notes: "Neuronal intracellular signaling compartment."
+
+species:
+  - name: INSULIN_Neuron
+    initial_amount: 2.5e-10
+    units: mol
+  - name: IR_inactive_Neuron
+    initial_amount: 8.0e-10
+    units: mol
+  - name: IR_active_Neuron
+    initial_amount: 2.0e-10
+    units: mol
+  - name: IRS1_unphospho_Neuron
+    initial_amount: 1.2e-9
+    units: mol
+  - name: IRS1_pY_Neuron
+    initial_amount: 2.0e-10
+    units: mol
+  - name: IRS1_pS_Neuron
+    initial_amount: 1.0e-10
+    units: mol
+  - name: PI3K_inactive_Neuron
+    initial_amount: 8.0e-10
+    units: mol
+  - name: PI3K_active_Neuron
+    initial_amount: 2.0e-10
+    units: mol
+  - name: AKT_inactive_Neuron
+    initial_amount: 1.2e-9
+    units: mol
+  - name: AKT_active_Neuron
+    initial_amount: 3.0e-10
+    units: mol
+  - name: GSK3B_active_Neuron
+    initial_amount: 8.0e-10
+    units: mol
+  - name: GSK3B_inactive_Neuron
+    initial_amount: 2.0e-10
+    units: mol
+  - name: mTOR_inactive_Neuron
+    initial_amount: 8.0e-10
+    units: mol
+  - name: mTOR_active_Neuron
+    initial_amount: 2.0e-10
+    units: mol
+  - name: FOXO_active_Neuron
+    initial_amount: 8.0e-10
+    units: mol
+  - name: FOXO_inactive_Neuron
+    initial_amount: 2.0e-10
+    units: mol
+  - name: IDE_Neuron
+    initial_amount: 3.0e-10
+    units: mol
+  - name: AB42_Neuron
+    initial_amount: 4.0e-10
+    units: mol
+
+reactions:
+  - name: Insulin_Input
+    reactants: []
+    products:
+      - INSULIN_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_insulin_input
+
+  - name: Insulin_Clearance
+    reactants:
+      - INSULIN_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_insulin_clear
+
+  - name: IR_Activation_by_Insulin
+    reactants:
+      - IR_inactive_Neuron
+      - INSULIN_Neuron
+    products:
+      - IR_active_Neuron
+      - INSULIN_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ir_act * (IR_inactive_Neuron / V_Neuron) * (INSULIN_Neuron / V_Neuron) / (K_INSULIN_IR + (INSULIN_Neuron / V_Neuron))"
+    rate_parameters:
+      - k_ir_act
+      - K_INSULIN_IR
+      - V_Neuron
+
+  - name: IR_Deactivation
+    reactants:
+      - IR_active_Neuron
+    products:
+      - IR_inactive_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_ir_deact
+
+  - name: IRS1_Tyrosine_Phosphorylation_by_IR
+    reactants:
+      - IRS1_unphospho_Neuron
+      - IR_active_Neuron
+    products:
+      - IRS1_pY_Neuron
+      - IR_active_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_irs1_py * (IRS1_unphospho_Neuron / V_Neuron) * (IR_active_Neuron / IR_ref)"
+    rate_parameters:
+      - k_irs1_py
+      - IR_ref
+      - V_Neuron
+
+  - name: IRS1_Serine_Phosphorylation_by_mTOR
+    reactants:
+      - IRS1_pY_Neuron
+      - mTOR_active_Neuron
+    products:
+      - IRS1_pS_Neuron
+      - mTOR_active_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_irs1_ps * (IRS1_pY_Neuron / V_Neuron) * (mTOR_active_Neuron / mTOR_ref)"
+    rate_parameters:
+      - k_irs1_ps
+      - mTOR_ref
+      - V_Neuron
+
+  - name: IRS1_pY_Turnover_to_Unphospho
+    reactants:
+      - IRS1_pY_Neuron
+    products:
+      - IRS1_unphospho_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_irs1_py_turn
+
+  - name: IRS1_pS_Dephosphorylation
+    reactants:
+      - IRS1_pS_Neuron
+    products:
+      - IRS1_unphospho_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_irs1_ps_deph
+
+  - name: PI3K_Activation_by_IRS1_pY
+    reactants:
+      - PI3K_inactive_Neuron
+      - IRS1_pY_Neuron
+    products:
+      - PI3K_active_Neuron
+      - IRS1_pY_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_pi3k_act * (PI3K_inactive_Neuron / V_Neuron) * (IRS1_pY_Neuron / V_Neuron) / (K_IRS1_PI3K + (IRS1_pY_Neuron / V_Neuron))"
+    rate_parameters:
+      - k_pi3k_act
+      - K_IRS1_PI3K
+      - V_Neuron
+
+  - name: PI3K_Inactivation
+    reactants:
+      - PI3K_active_Neuron
+    products:
+      - PI3K_inactive_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_pi3k_inact
+
+  - name: AKT_Activation_by_PI3K
+    reactants:
+      - AKT_inactive_Neuron
+      - PI3K_active_Neuron
+    products:
+      - AKT_active_Neuron
+      - PI3K_active_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_akt_act * (AKT_inactive_Neuron / V_Neuron) * (PI3K_active_Neuron / V_Neuron) / (K_PI3K_AKT + (PI3K_active_Neuron / V_Neuron))"
+    rate_parameters:
+      - k_akt_act
+      - K_PI3K_AKT
+      - V_Neuron
+
+  - name: AKT_Inactivation
+    reactants:
+      - AKT_active_Neuron
+    products:
+      - AKT_inactive_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_akt_inact
+
+  - name: GSK3B_Inhibition_by_AKT
+    reactants:
+      - GSK3B_active_Neuron
+      - AKT_active_Neuron
+    products:
+      - GSK3B_inactive_Neuron
+      - AKT_active_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_gsk3b_inhib_akt * (GSK3B_active_Neuron / V_Neuron) * (AKT_active_Neuron / AKT_ref)"
+    rate_parameters:
+      - k_gsk3b_inhib_akt
+      - AKT_ref
+      - V_Neuron
+
+  - name: GSK3B_Reactivation
+    reactants:
+      - GSK3B_inactive_Neuron
+    products:
+      - GSK3B_active_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_gsk3b_react
+
+  - name: mTOR_Activation_by_AKT
+    reactants:
+      - mTOR_inactive_Neuron
+      - AKT_active_Neuron
+    products:
+      - mTOR_active_Neuron
+      - AKT_active_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_mtor_act_akt * (mTOR_inactive_Neuron / V_Neuron) * (AKT_active_Neuron / AKT_ref)"
+    rate_parameters:
+      - k_mtor_act_akt
+      - AKT_ref
+      - V_Neuron
+
+  - name: mTOR_Inactivation
+    reactants:
+      - mTOR_active_Neuron
+    products:
+      - mTOR_inactive_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_mtor_inact
+
+  - name: FOXO_Inhibition_by_AKT
+    reactants:
+      - FOXO_active_Neuron
+      - AKT_active_Neuron
+    products:
+      - FOXO_inactive_Neuron
+      - AKT_active_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_foxo_inhib_akt * (FOXO_active_Neuron / V_Neuron) * (AKT_active_Neuron / AKT_ref)"
+    rate_parameters:
+      - k_foxo_inhib_akt
+      - AKT_ref
+      - V_Neuron
+
+  - name: FOXO_Reactivation
+    reactants:
+      - FOXO_inactive_Neuron
+    products:
+      - FOXO_active_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_foxo_react
+
+  - name: IDE_Synthesis_by_AKT_FOXO
+    reactants: []
+    products:
+      - IDE_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ide_syn_basal + k_ide_syn_akt * (AKT_active_Neuron / AKT_ref) * (K_FOXO_IDE / (K_FOXO_IDE + (FOXO_active_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_ide_syn_basal
+      - k_ide_syn_akt
+      - AKT_ref
+      - K_FOXO_IDE
+      - V_Neuron
+
+  - name: IDE_Turnover
+    reactants:
+      - IDE_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_ide_deg
+
+  - name: AB42_Input
+    reactants: []
+    products:
+      - AB42_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_ab42_input
+
+  - name: AB42_Degradation_by_IDE
+    reactants:
+      - AB42_Neuron
+      - IDE_Neuron
+    products:
+      - IDE_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "Vmax_ide_ab42 * (IDE_Neuron / IDE_ref) * (AB42_Neuron / V_Neuron) / (Km_ide_ab42 + (AB42_Neuron / V_Neuron))"
+    rate_parameters:
+      - Vmax_ide_ab42
+      - IDE_ref
+      - Km_ide_ab42
+      - V_Neuron
+
+parameters:
+  - name: V_Neuron
+    value: 0.0005
+    units: L
+    confidence: assumed
+    source: "strategy_synaptic_neuronal.md"
+
+  - name: k_insulin_input
+    value: 2.0e-11
+    units: mol/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_insulin_clear
+    value: 0.0578
+    units: 1/hr
+    confidence: estimated
+    source: "data/parameters/module/insulin_signaling.json (12 h timescale mapped to ln2/t)"
+
+  - name: k_ir_act
+    value: 0.9
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: K_INSULIN_IR
+    value: 340.9625290150061
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/insulin_signaling.json concentration-scale geometric mean"
+
+  - name: k_ir_deact
+    value: 0.25
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_irs1_py
+    value: 0.8
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_irs1_ps
+    value: 0.35
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_irs1_py_turn
+    value: 0.2
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_irs1_ps_deph
+    value: 0.1
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_pi3k_act
+    value: 0.7
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: K_IRS1_PI3K
+    value: 340.9625290150061
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/insulin_signaling.json concentration-scale geometric mean"
+
+  - name: k_pi3k_inact
+    value: 0.25
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_akt_act
+    value: 0.9
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: K_PI3K_AKT
+    value: 340.9625290150061
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/insulin_signaling.json concentration-scale geometric mean"
+
+  - name: k_akt_inact
+    value: 0.3
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_gsk3b_inhib_akt
+    value: 0.8
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_gsk3b_react
+    value: 0.12
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_mtor_act_akt
+    value: 0.65
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_mtor_inact
+    value: 0.18
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_foxo_inhib_akt
+    value: 0.75
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_foxo_react
+    value: 0.16
+    units: 1/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_ide_syn_basal
+    value: 1.0e-11
+    units: mol/L/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: k_ide_syn_akt
+    value: 3.0e-11
+    units: mol/L/hr
+    confidence: estimated
+    source: "insulin_signaling module initialization"
+
+  - name: K_FOXO_IDE
+    value: 340.9625290150061
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/insulin_signaling.json concentration-scale geometric mean"
+
+  - name: k_ide_deg
+    value: 0.0578
+    units: 1/hr
+    confidence: estimated
+    source: "data/parameters/module/insulin_signaling.json (12 h timescale mapped to ln2/t)"
+
+  - name: Vmax_ide_ab42
+    value: 0.12
+    units: mol/L/hr
+    confidence: estimated
+    source: "Elbert IDE clearance motif adapted to neuronal module"
+
+  - name: Km_ide_ab42
+    value: 340.9625290150061
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/insulin_signaling.json concentration-scale geometric mean"
+
+  - name: k_ab42_input
+    value: 1.2e-11
+    units: mol/hr
+    confidence: assumed
+    source: "insulin_signaling module closure term"
+
+  - name: IR_ref
+    value: 1.0e-6
+    units: mol
+    confidence: assumed
+    source: "normalization reference"
+
+  - name: AKT_ref
+    value: 1.0e-6
+    units: mol
+    confidence: assumed
+    source: "normalization reference"
+
+  - name: mTOR_ref
+    value: 1.0e-6
+    units: mol
+    confidence: assumed
+    source: "normalization reference"
+
+  - name: IDE_ref
+    value: 1.0e-6
+    units: mol
+    confidence: assumed
+    source: "normalization reference"
+
+evidence:
+  - source: "data/parameters/module/insulin_signaling.json"
+    supports: "Concentration-scale and timescale priors for insulin signaling parameter initialization"
+  - source: "plan/strategy_synaptic_neuronal.md"
+    supports: "Compartment convention and neuronal volume prior"
+  - source: "../Elbert_Esguerra_model_v2026b/antimony_models/*"
+    supports: "IDE enzymatic clearance motif compatibility with antimony conventions"

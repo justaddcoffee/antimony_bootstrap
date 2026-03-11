@@ -1,0 +1,380 @@
+name: epigenetics
+description: >
+  Tier 4 exploratory epigenetics module for Alzheimer's disease ODE models.
+  Captures neuronal DNA methylation balance, histone acetylation/deacetylation,
+  repressive histone methylation, and miRNA (miR-146a/miR-155) dynamics that can
+  provide cross-module modifiers for transcriptional output and inflammatory tone.
+mechanism: "Epigenetics and Gene Regulation"
+notes: "Tier: 4 (exploratory). Most kinetics are assumed placeholders intended to provide epigenetic modifier outputs for other modules."
+
+compartments:
+  - name: Neuron
+    volume_parameter: V_Neuron
+    volume_value: 0.0005
+    volume_units: L
+    notes: "Neuronal intracellular compartment for chromatin and miRNA state proxies."
+
+species:
+  - name: DNMT1_Neuron
+    initial_amount: 8.0e-11
+    units: mol
+    notes: "Maintenance DNA methyltransferase activity proxy."
+  - name: DNMT3A_Neuron
+    initial_amount: 6.0e-11
+    units: mol
+    notes: "De novo DNA methyltransferase activity proxy."
+  - name: HDAC_Neuron
+    initial_amount: 1.1e-10
+    units: mol
+    notes: "Lumped histone deacetylase activity pool."
+  - name: HAT_Neuron
+    initial_amount: 9.0e-11
+    units: mol
+    notes: "Lumped histone acetyltransferase activity pool."
+  - name: SIRT1_Neuron
+    initial_amount: 7.0e-11
+    units: mol
+    notes: "NAD-dependent deacetylase pool providing protective deacetylation pressure."
+  - name: global_methylation_Neuron
+    initial_amount: 2.5e-10
+    units: mol
+    notes: "Global DNA methylation state proxy."
+  - name: H3K9ac_Neuron
+    initial_amount: 1.8e-10
+    units: mol
+    notes: "Histone H3K9 acetylation state proxy (generally permissive mark)."
+  - name: H3K27me3_Neuron
+    initial_amount: 1.5e-10
+    units: mol
+    notes: "Histone H3K27 trimethylation state proxy (repressive mark)."
+  - name: miR146a_Neuron
+    initial_amount: 4.0e-11
+    units: mol
+    notes: "Anti-inflammatory microRNA proxy."
+  - name: miR155_Neuron
+    initial_amount: 3.0e-11
+    units: mol
+    notes: "Pro-inflammatory microRNA proxy."
+
+reactions:
+  - name: DNA_Methylation_Addition_Neuron
+    reactants: []
+    products:
+      - global_methylation_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_methyl_add * (((DNMT1_Neuron / V_Neuron) + (DNMT3A_Neuron / V_Neuron)) / (K_DNMT_activity + (DNMT1_Neuron / V_Neuron) + (DNMT3A_Neuron / V_Neuron))) * (1 - (global_methylation_Neuron / V_Neuron) / methylation_cap)"
+    rate_parameters:
+      - k_methyl_add
+      - K_DNMT_activity
+      - methylation_cap
+      - V_Neuron
+    notes: "Saturable DNMT1/DNMT3A-driven global DNA methylation addition."
+
+  - name: DNA_Demethylation_Neuron
+    reactants:
+      - global_methylation_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_methyl_remove
+    notes: "Lumped first-order active/passive demethylation flux."
+
+  - name: H3K9_Acetylation_by_HAT_Neuron
+    reactants: []
+    products:
+      - H3K9ac_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_H3K9_acetyl * ((HAT_Neuron / V_Neuron) / (K_HAT_activity + (HAT_Neuron / V_Neuron))) * (1 - (H3K9ac_Neuron / V_Neuron) / H3K9ac_cap)"
+    rate_parameters:
+      - k_H3K9_acetyl
+      - K_HAT_activity
+      - H3K9ac_cap
+      - V_Neuron
+    notes: "HAT-driven acetylation of permissive chromatin mark H3K9ac."
+
+  - name: H3K9_Deacetylation_by_HDAC_SIRT1_Neuron
+    reactants:
+      - H3K9ac_Neuron
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_H3K9_deacetyl * (H3K9ac_Neuron / V_Neuron) * (((HDAC_Neuron / V_Neuron) + sf_SIRT1_on_HDAC_axis * (SIRT1_Neuron / V_Neuron)) / (K_HDAC_SIRT1_activity + (HDAC_Neuron / V_Neuron) + sf_SIRT1_on_HDAC_axis * (SIRT1_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_H3K9_deacetyl
+      - sf_SIRT1_on_HDAC_axis
+      - K_HDAC_SIRT1_activity
+      - V_Neuron
+    notes: "Combined HDAC and SIRT1 deacetylation pressure on H3K9ac."
+
+  - name: H3K27me3_Deposition_Neuron
+    reactants: []
+    products:
+      - H3K27me3_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_H3K27me3_add * (((DNMT3A_Neuron / V_Neuron) + sf_methyl_to_H3K27 * (global_methylation_Neuron / V_Neuron)) / (K_H3K27_writer + (DNMT3A_Neuron / V_Neuron) + sf_methyl_to_H3K27 * (global_methylation_Neuron / V_Neuron))) * (1 - (H3K27me3_Neuron / V_Neuron) / H3K27me3_cap)"
+    rate_parameters:
+      - k_H3K27me3_add
+      - sf_methyl_to_H3K27
+      - K_H3K27_writer
+      - H3K27me3_cap
+      - V_Neuron
+    notes: "Repressive mark deposition linked to DNMT3A/global methylation context."
+
+  - name: H3K27me3_Demethylation_Neuron
+    reactants:
+      - H3K27me3_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_H3K27me3_remove
+    notes: "Lumped first-order removal of repressive histone methylation mark."
+
+  - name: miR146a_Synthesis_Neuron
+    reactants: []
+    products:
+      - miR146a_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_miR146a_syn * ((H3K9ac_Neuron / V_Neuron) / (K_act_H3K9ac_miR146a + (H3K9ac_Neuron / V_Neuron))) * (K_rep_H3K27_miR146a / (K_rep_H3K27_miR146a + (H3K27me3_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_miR146a_syn
+      - K_act_H3K9ac_miR146a
+      - K_rep_H3K27_miR146a
+      - V_Neuron
+    notes: "miR-146a production favored by permissive acetylation and opposed by repressive chromatin."
+
+  - name: miR146a_Turnover_Neuron
+    reactants:
+      - miR146a_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_miR146a_deg
+    notes: "First-order miR-146a turnover."
+
+  - name: miR155_Synthesis_Neuron
+    reactants: []
+    products:
+      - miR155_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_miR155_syn * (K_rep_SIRT1_miR155 / (K_rep_SIRT1_miR155 + (SIRT1_Neuron / V_Neuron))) * (K_rep_methyl_miR155 / (K_rep_methyl_miR155 + (global_methylation_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_miR155_syn
+      - K_rep_SIRT1_miR155
+      - K_rep_methyl_miR155
+      - V_Neuron
+    notes: "miR-155 production increases under low SIRT1 and hypomethylated context."
+
+  - name: miR155_Turnover_Neuron
+    reactants:
+      - miR155_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_miR155_deg
+    notes: "First-order miR-155 turnover."
+
+parameters:
+  - name: k_methyl_add
+    value: 6.0e-02
+    units: 1/hr
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: K_DNMT_activity
+    value: 2.0e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: methylation_cap
+    value: 1.0e-06
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: k_methyl_remove
+    value: 2.0e-02
+    units: 1/hr
+    confidence: estimated
+    source: "Order-of-magnitude chromatin-mark turnover abstraction"
+
+  - name: k_H3K9_acetyl
+    value: 8.0e-02
+    units: 1/hr
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: K_HAT_activity
+    value: 1.5e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: H3K9ac_cap
+    value: 9.0e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: k_H3K9_deacetyl
+    value: 9.0e-02
+    units: 1/hr
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: sf_SIRT1_on_HDAC_axis
+    value: 1.4
+    units: dimensionless
+    confidence: estimated
+    source: "SIRT1 deacetylase reinforcement assumption"
+
+  - name: K_HDAC_SIRT1_activity
+    value: 2.5e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: k_H3K27me3_add
+    value: 5.0e-02
+    units: 1/hr
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: sf_methyl_to_H3K27
+    value: 0.7
+    units: dimensionless
+    confidence: assumed
+    source: "Cross-talk scaling assumption"
+
+  - name: K_H3K27_writer
+    value: 2.0e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: H3K27me3_cap
+    value: 8.0e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: k_H3K27me3_remove
+    value: 2.5e-02
+    units: 1/hr
+    confidence: estimated
+    source: "Order-of-magnitude histone-mark turnover abstraction"
+
+  - name: k_miR146a_syn
+    value: 3.5e-02
+    units: mol/L/hr
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: K_act_H3K9ac_miR146a
+    value: 1.2e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: K_rep_H3K27_miR146a
+    value: 1.0e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: k_miR146a_deg
+    value: 1.2e-01
+    units: 1/hr
+    confidence: estimated
+    source: "miRNA turnover timescale abstraction"
+
+  - name: k_miR155_syn
+    value: 3.8e-02
+    units: mol/L/hr
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: K_rep_SIRT1_miR155
+    value: 1.1e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: K_rep_methyl_miR155
+    value: 1.0e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory placeholder"
+
+  - name: k_miR155_deg
+    value: 1.1e-01
+    units: 1/hr
+    confidence: estimated
+    source: "miRNA turnover timescale abstraction"
+
+  - name: K_epi_activation
+    value: 1.0e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory scaling"
+
+  - name: K_epi_methyl_repress
+    value: 1.0e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory scaling"
+
+  - name: K_epi_H3K27_repress
+    value: 1.0e-07
+    units: mol/L
+    confidence: assumed
+    source: "Tier 4 exploratory scaling"
+
+  - name: sf_epi_activation
+    value: 0.8
+    units: dimensionless
+    confidence: assumed
+    source: "Tier 4 exploratory scaling"
+
+  - name: sf_epi_repression
+    value: 0.9
+    units: dimensionless
+    confidence: assumed
+    source: "Tier 4 exploratory scaling"
+
+  - name: sf_miR155_inflam
+    value: 1.2
+    units: L/mol
+    confidence: assumed
+    source: "Tier 4 exploratory scaling"
+
+  - name: sf_miR146a_inflam
+    value: 1.0
+    units: L/mol
+    confidence: assumed
+    source: "Tier 4 exploratory scaling"
+
+rules:
+  - name: epi_activation_index
+    equation: "epi_activation_index = (H3K9ac_Neuron / V_Neuron) / (K_epi_activation + (H3K9ac_Neuron / V_Neuron))"
+    notes: "Activation proxy from permissive acetylation state."
+
+  - name: epi_repression_index
+    equation: "epi_repression_index = ((global_methylation_Neuron / V_Neuron) / (K_epi_methyl_repress + (global_methylation_Neuron / V_Neuron))) + ((H3K27me3_Neuron / V_Neuron) / (K_epi_H3K27_repress + (H3K27me3_Neuron / V_Neuron)))"
+    notes: "Combined repression proxy from DNA methylation and H3K27me3 states."
+
+  - name: mod_epigenetic_gene_expression
+    equation: "mod_epigenetic_gene_expression = (1 + sf_epi_activation * epi_activation_index) / (1 + sf_epi_repression * epi_repression_index)"
+    notes: "Cross-module output scaling transcription-linked production rates."
+
+  - name: mod_epigenetic_inflammatory_tone
+    equation: "mod_epigenetic_inflammatory_tone = (1 + sf_miR155_inflam * (miR155_Neuron / V_Neuron)) / (1 + sf_miR146a_inflam * (miR146a_Neuron / V_Neuron))"
+    notes: "Cross-module output scaling pro-vs-anti inflammatory drive from miRNA balance."
+
+evidence:
+  - source: "plan/strategy_synaptic_neuronal.md"
+    supports: "Neuron compartment convention and exploratory Tier 4 module framing"
+  - source: "plan/batch_27_findings.md"
+    pmid: "25129075"
+    supports: "AD-associated neuronal DNA methylation dysregulation context"
+  - source: "plan/batch_29_findings.md"
+    supports: "SIRT1-linked deacetylation and AD-relevant epigenetic regulation motifs"

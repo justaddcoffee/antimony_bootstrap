@@ -1,0 +1,441 @@
+name: peripheral_immune
+description: >
+  Tier 4 peripheral immune module for Alzheimer's disease ODE models.
+  Captures monocyte trafficking, macrophage differentiation in BrainISF,
+  peripheral T cell dynamics, TNFA/IL6/CRP inflammatory signaling,
+  and anti-AB antibody immunotherapy with brain entry and AB42 complex clearance.
+mechanism: "Neuroinflammation"
+notes: "Tier: 4. Compartments constrained to Plasma and BrainISF. CRP represented as CRP_Plasma and anti-AB antibody as anti_AB_antibody_Plasma/BrainISF."
+
+compartments:
+  - name: Plasma
+    volume_parameter: V_Plasma
+    volume_value: 3.0
+    volume_units: L
+    notes: "Peripheral immune and cytokine pool."
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.25
+    volume_units: L
+    notes: "Brain interstitial fluid interface for infiltrating immune cells and antibody-AB42 interactions."
+
+species:
+  - name: MONOCYTE_Plasma
+    initial_amount: 1.0e-9
+    units: cell_equiv
+  - name: MACROPHAGE_BrainISF
+    initial_amount: 0.05e-9
+    units: cell_equiv
+  - name: T_CELL_Plasma
+    initial_amount: 0.8e-9
+    units: cell_equiv
+  - name: T_CELL_BrainISF
+    initial_amount: 0.02e-9
+    units: cell_equiv
+  - name: TNFA_Plasma
+    initial_amount: 0.01e-9
+    units: mol
+  - name: IL6_Plasma
+    initial_amount: 0.02e-9
+    units: mol
+  - name: CRP_Plasma
+    initial_amount: 0.03e-9
+    units: mol
+  - name: anti_AB_antibody_Plasma
+    initial_amount: 0.2e-9
+    units: mol
+  - name: anti_AB_antibody_BrainISF
+    initial_amount: 0.01e-9
+    units: mol
+  - name: AB42_BrainISF
+    initial_amount: 0.2e-9
+    units: mol
+    notes: "Shared coupling species from amyloid modules."
+  - name: AB42_anti_AB_complex_BrainISF
+    initial_amount: 0.0
+    units: mol
+
+reactions:
+  - name: Monocyte_Production_Plasma
+    reactants: []
+    products:
+      - MONOCYTE_Plasma
+    rate_type: MA
+    rate_parameters:
+      - k_monocyte_prod
+
+  - name: Monocyte_Clearance_Plasma
+    reactants:
+      - MONOCYTE_Plasma
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_monocyte_clear
+
+  - name: Monocyte_Infiltration_to_BrainISF
+    reactants:
+      - MONOCYTE_Plasma
+    products:
+      - MACROPHAGE_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_monocyte_infiltration * (MONOCYTE_Plasma / V_Plasma) * (1 + amp_TNFA_monocyte_entry * (TNFA_Plasma / V_Plasma) / (K_TNFA_monocyte_entry + (TNFA_Plasma / V_Plasma)))"
+    rate_parameters:
+      - k_monocyte_infiltration
+      - amp_TNFA_monocyte_entry
+      - K_TNFA_monocyte_entry
+      - V_Plasma
+
+  - name: Macrophage_Turnover_BrainISF
+    reactants:
+      - MACROPHAGE_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_macrophage_turnover
+
+  - name: TCell_Production_Plasma
+    reactants: []
+    products:
+      - T_CELL_Plasma
+    rate_type: MA
+    rate_parameters:
+      - k_tcell_prod
+
+  - name: TCell_Clearance_Plasma
+    reactants:
+      - T_CELL_Plasma
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_tcell_clear
+
+  - name: TCell_Entry_to_BrainISF
+    reactants:
+      - T_CELL_Plasma
+    products:
+      - T_CELL_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_tcell_entry * (T_CELL_Plasma / V_Plasma) * ((TNFA_Plasma / V_Plasma) / (K_TNFA_tcell_entry + (TNFA_Plasma / V_Plasma)))"
+    rate_parameters:
+      - k_tcell_entry
+      - K_TNFA_tcell_entry
+      - V_Plasma
+
+  - name: TCell_Egress_to_Plasma
+    reactants:
+      - T_CELL_BrainISF
+    products:
+      - T_CELL_Plasma
+    rate_type: MA
+    rate_parameters:
+      - k_tcell_egress
+
+  - name: TNFA_Production_Plasma
+    reactants: []
+    products:
+      - TNFA_Plasma
+    rate_type: custom_conc_per_time
+    rate_equation: "k_tnfa_prod * ((MONOCYTE_Plasma / V_Plasma) + alpha_tcell_tnfa * (T_CELL_Plasma / V_Plasma)) / (1 + (anti_AB_antibody_Plasma / V_Plasma) / IC50_anti_inflam)"
+    rate_parameters:
+      - k_tnfa_prod
+      - alpha_tcell_tnfa
+      - IC50_anti_inflam
+      - V_Plasma
+
+  - name: TNFA_Clearance_Plasma
+    reactants:
+      - TNFA_Plasma
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_tnfa_clear
+
+  - name: IL6_Production_Plasma
+    reactants: []
+    products:
+      - IL6_Plasma
+    rate_type: custom_conc_per_time
+    rate_equation: "k_il6_prod * (((MONOCYTE_Plasma / V_Plasma) + alpha_tcell_il6 * (T_CELL_Plasma / V_Plasma)) * ((TNFA_Plasma / V_Plasma) / (K_TNFA_il6 + (TNFA_Plasma / V_Plasma))))"
+    rate_parameters:
+      - k_il6_prod
+      - alpha_tcell_il6
+      - K_TNFA_il6
+      - V_Plasma
+
+  - name: IL6_Clearance_Plasma
+    reactants:
+      - IL6_Plasma
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_il6_clear
+
+  - name: CRP_Production_from_IL6
+    reactants: []
+    products:
+      - CRP_Plasma
+    rate_type: custom_conc_per_time
+    rate_equation: "k_crp_prod_max * ((IL6_Plasma / V_Plasma)^n_crp_il6) / (K_IL6_CRP^n_crp_il6 + (IL6_Plasma / V_Plasma)^n_crp_il6)"
+    rate_parameters:
+      - k_crp_prod_max
+      - n_crp_il6
+      - K_IL6_CRP
+      - V_Plasma
+
+  - name: CRP_Clearance_Plasma
+    reactants:
+      - CRP_Plasma
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_crp_clear
+
+  - name: AntiAB_Antibody_Dose_Input
+    reactants: []
+    products:
+      - anti_AB_antibody_Plasma
+    rate_type: MA
+    rate_parameters:
+      - k_anti_ab_dose
+
+  - name: AntiAB_Antibody_Clearance_Plasma
+    reactants:
+      - anti_AB_antibody_Plasma
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_anti_ab_clear
+
+  - name: AntiAB_Antibody_Transport_to_BrainISF
+    reactants:
+      - anti_AB_antibody_Plasma
+    products:
+      - anti_AB_antibody_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_anti_ab_brain_entry
+
+  - name: AntiAB_Binding_AB42_BrainISF
+    reactants:
+      - anti_AB_antibody_BrainISF
+      - AB42_BrainISF
+    products:
+      - AB42_anti_AB_complex_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ab42_ab_bind * (anti_AB_antibody_BrainISF / V_BrainISF) * (AB42_BrainISF / V_BrainISF) / (EC50_anti_ab_bind + (AB42_BrainISF / V_BrainISF))"
+    rate_parameters:
+      - k_ab42_ab_bind
+      - EC50_anti_ab_bind
+      - V_BrainISF
+
+  - name: AB42_Antibody_Complex_Clearance
+    reactants:
+      - AB42_anti_AB_complex_BrainISF
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ab42_complex_clear * (AB42_anti_AB_complex_BrainISF / V_BrainISF) * (1 + (MACROPHAGE_BrainISF / V_BrainISF) / K_MACROPHAGE_complex_clear)"
+    rate_parameters:
+      - k_ab42_complex_clear
+      - K_MACROPHAGE_complex_clear
+      - V_BrainISF
+
+parameters:
+  - name: V_Plasma
+    value: 3.0
+    units: L
+    confidence: assumed
+    source: "Compartment volume mirrored from compartments.Plasma.volume_value"
+
+  - name: V_BrainISF
+    value: 0.25
+    units: L
+    confidence: assumed
+    source: "Compartment volume mirrored from compartments.BrainISF.volume_value"
+
+  - name: k_monocyte_prod
+    value: 0.10
+    units: cell_equiv/day
+    confidence: assumed
+    source: "Tier 4 placeholder for peripheral myelopoiesis input"
+
+  - name: k_monocyte_clear
+    value: 0.12
+    units: 1/day
+    confidence: assumed
+    source: "Tier 4 placeholder for plasma monocyte turnover"
+
+  - name: k_monocyte_infiltration
+    value: 0.020
+    units: 1/day
+    confidence: estimated
+    source: "strategy_neuroinflammation.md: cytokine-amplified immune trafficking motif"
+
+  - name: amp_TNFA_monocyte_entry
+    value: 2.0
+    units: dimensionless
+    confidence: estimated
+    source: "strategy_neuroinflammation.md TNFa amplification motif"
+
+  - name: K_TNFA_monocyte_entry
+    value: 0.10
+    units: nM
+    confidence: estimated
+    source: "strategy_neuroinflammation.md TNFa midpoint scale"
+
+  - name: k_macrophage_turnover
+    value: 0.08
+    units: 1/day
+    confidence: assumed
+    source: "Tier 4 placeholder for infiltrated macrophage loss"
+
+  - name: k_tcell_prod
+    value: 0.08
+    units: cell_equiv/day
+    confidence: assumed
+    source: "Tier 4 placeholder for circulating T cell input"
+
+  - name: k_tcell_clear
+    value: 0.10
+    units: 1/day
+    confidence: assumed
+    source: "Tier 4 placeholder for circulating T cell turnover"
+
+  - name: k_tcell_entry
+    value: 0.015
+    units: 1/day
+    confidence: estimated
+    source: "strategy_neuroinflammation.md cytokine-linked entry abstraction"
+
+  - name: K_TNFA_tcell_entry
+    value: 0.10
+    units: nM
+    confidence: estimated
+    source: "strategy_neuroinflammation.md TNFa midpoint scale"
+
+  - name: k_tcell_egress
+    value: 0.05
+    units: 1/day
+    confidence: assumed
+    source: "Tier 4 placeholder for CNS-to-plasma recirculation"
+
+  - name: k_tnfa_prod
+    value: 0.40
+    units: nM/day
+    confidence: estimated
+    source: "strategy_neuroinflammation.md TNFa production scale"
+
+  - name: alpha_tcell_tnfa
+    value: 0.8
+    units: dimensionless
+    confidence: assumed
+    source: "Assumed weighting for T-cell contribution to TNFa"
+
+  - name: IC50_anti_inflam
+    value: 72.2115
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/peripheral_immune.json (IC50 geometric mean; mapped as anti-inflammatory efficacy scale)"
+
+  - name: k_tnfa_clear
+    value: 20.0
+    units: 1/day
+    confidence: estimated
+    source: "strategy_neuroinflammation.md TNFa fast turnover guidance"
+
+  - name: k_il6_prod
+    value: 0.30
+    units: nM/day
+    confidence: estimated
+    source: "strategy_neuroinflammation.md IL6 production motif"
+
+  - name: alpha_tcell_il6
+    value: 0.6
+    units: dimensionless
+    confidence: assumed
+    source: "Assumed weighting for T-cell contribution to IL6"
+
+  - name: K_TNFA_il6
+    value: 0.10
+    units: nM
+    confidence: estimated
+    source: "strategy_neuroinflammation.md cytokine midpoint scale"
+
+  - name: k_il6_clear
+    value: 10.0
+    units: 1/day
+    confidence: estimated
+    source: "strategy_neuroinflammation.md IL6 turnover guidance"
+
+  - name: k_crp_prod_max
+    value: 0.25
+    units: nM/day
+    confidence: assumed
+    source: "Tier 4 placeholder for IL6-driven acute phase response"
+
+  - name: n_crp_il6
+    value: 4.0
+    units: dimensionless
+    confidence: estimated
+    source: "data/parameters/module/peripheral_immune.json (Hill_coefficient geometric mean)"
+
+  - name: K_IL6_CRP
+    value: 60.0658
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/peripheral_immune.json (unspecified_parameter geometric mean, nM)"
+
+  - name: k_crp_clear
+    value: 1.2
+    units: 1/day
+    confidence: assumed
+    source: "Tier 4 placeholder for CRP turnover"
+
+  - name: k_anti_ab_dose
+    value: 0.03
+    units: nM/day
+    confidence: assumed
+    source: "Immunotherapy source term placeholder"
+
+  - name: k_anti_ab_clear
+    value: 0.20
+    units: 1/day
+    confidence: assumed
+    source: "Tier 4 placeholder for plasma antibody clearance"
+
+  - name: k_anti_ab_brain_entry
+    value: 0.010
+    units: 1/day
+    confidence: estimated
+    source: "Elbert antibody plasma/BrainISF coupling pattern"
+
+  - name: k_ab42_ab_bind
+    value: 0.020
+    units: 1/day
+    confidence: estimated
+    source: "Elbert anti-AB species interaction motif + peripheral_immune EC50 data"
+
+  - name: EC50_anti_ab_bind
+    value: 461.5417
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/peripheral_immune.json (EC50 geometric mean)"
+
+  - name: k_ab42_complex_clear
+    value: 0.60
+    units: 1/day
+    confidence: assumed
+    source: "Tier 4 placeholder for Fc/macrophage-assisted AB42-antibody complex removal"
+
+  - name: K_MACROPHAGE_complex_clear
+    value: 0.05
+    units: cell_equiv/L
+    confidence: assumed
+    source: "Tier 4 placeholder for macrophage dependence of complex clearance"
+
+evidence:
+  - source: "plan/strategy_neuroinflammation.md"
+    supports: "Cytokine-amplified immune trafficking motifs and MA/custom_conc_per_time rate-law pattern"
+  - source: "../Elbert_Esguerra_model_v2026b/antimony_models/Antimony_Elbert_Esguerra_2b_all_reactions.txt"
+    supports: "Plasma-BrainISF naming and antibody transport/coupling style"
+  - source: "data/parameters/module/peripheral_immune.json"
+    supports: "Mapped EC50, IC50, Hill coefficient, and concentration scale for peripheral immune placeholders"

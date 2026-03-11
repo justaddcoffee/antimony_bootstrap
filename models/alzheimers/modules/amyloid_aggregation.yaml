@@ -1,0 +1,872 @@
+name: amyloid_aggregation
+description: >
+  Tier 1 amyloid aggregation module for Alzheimer's disease ODE models.
+  Captures AB42/AB40 primary nucleation, secondary nucleation, oligomer-protofibril
+  conversion, fibril elongation/fragmentation, and plaque deposition/clearance between
+  BrainISF and BrainParenchyma using Elbert-compatible naming and Knowles/Cohen kinetics.
+mechanism: "Amyloid Cascade"
+notes: "Tier: 1 (core). Includes nucleation-polymerization custom kinetics and simplified plaque dynamics."
+
+compartments:
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.25
+    volume_units: L
+    notes: "Primary soluble aggregation compartment."
+  - name: BrainParenchyma
+    volume_parameter: V_BrainParenchyma
+    volume_value: 1.0
+    volume_units: L
+    notes: "Insoluble plaque deposition compartment."
+
+species:
+  - name: AB42_monomer_BrainISF
+    initial_amount: 1.0e-9
+    units: mol
+  - name: AB42_oligomer_BrainISF
+    initial_amount: 5.0e-11
+    units: mol
+  - name: AB42_protofibril_BrainISF
+    initial_amount: 1.0e-11
+    units: mol
+  - name: AB42_fibril_BrainISF
+    initial_amount: 1.0e-11
+    units: mol
+  - name: AB40_monomer_BrainISF
+    initial_amount: 2.0e-9
+    units: mol
+  - name: AB40_oligomer_BrainISF
+    initial_amount: 5.0e-11
+    units: mol
+  - name: AB40_protofibril_BrainISF
+    initial_amount: 1.0e-11
+    units: mol
+  - name: AB40_fibril_BrainISF
+    initial_amount: 1.0e-11
+    units: mol
+  - name: AB_plaque_BrainParenchyma
+    initial_amount: 2.0e-10
+    units: mol
+
+reactions:
+  - name: PrimaryOligomerization_AB42_BrainISF
+    reactants:
+      - AB42_monomer_BrainISF
+    products:
+      - AB42_oligomer_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "n_oligo1_AB42 * k_oligo1_AB42 * (AB42_monomer_BrainISF / V_BrainISF)^n_oligo1_AB42"
+    rate_parameters:
+      - n_oligo1_AB42
+      - k_oligo1_AB42
+      - V_BrainISF
+    evidence:
+      - source: "Elbert noSILK 1c reaction PrimaryOligomerization_AB42_BrainISF"
+        supports: "Primary AB42 oligomer formation pathway"
+    rate_law_evidence:
+      - pmid: "19700509"
+        source: "Knowles et al. 2009"
+        supports: "Nucleation power-law kinetics"
+
+  - name: SecondaryOligomerization_AB42_BrainISF
+    reactants:
+      - AB42_monomer_BrainISF
+    products:
+      - AB42_oligomer_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "n_oligo2_AB42 * k_oligo2_AB42 * (AB42_monomer_BrainISF / V_BrainISF)^n_oligo2_AB42 * (AB42_fibril_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - n_oligo2_AB42
+      - k_oligo2_AB42
+      - V_BrainISF
+    evidence:
+      - source: "Elbert noSILK 1c reaction SecondaryOligomerization_AB42_BrainISF"
+        supports: "Fibril-catalyzed AB42 oligomer generation"
+    rate_law_evidence:
+      - pmid: "24270810"
+        source: "Cohen et al. 2013"
+        supports: "Secondary nucleation term monomer^n2 * fibril"
+
+  - name: DeOligomerization_AB42_BrainISF
+    reactants:
+      - AB42_oligomer_BrainISF
+    products:
+      - AB42_monomer_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_d1_Oligomer_AB42
+    evidence:
+      - source: "Elbert noSILK 1c reaction DeOligomerization_AB42_BrainISF"
+        supports: "Reversible oligomer pool"
+    rate_law_evidence:
+      - source: "Elbert parameter k_d1_Oligomer_AB42"
+        supports: "First-order de-oligomerization"
+
+  - name: SecondaryDeOligomerization_AB42_BrainISF
+    reactants:
+      - AB42_oligomer_BrainISF
+    products:
+      - AB42_monomer_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_d2_Oligomer_AB42 * (AB42_oligomer_BrainISF / V_BrainISF) * (AB42_fibril_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_d2_Oligomer_AB42
+      - V_BrainISF
+    evidence:
+      - source: "Elbert noSILK 1c reaction SecondaryDeOligomerization_AB42_BrainISF"
+        supports: "Fibril-dependent AB42 oligomer disassembly"
+    rate_law_evidence:
+      - source: "Elbert parameter k_d2_Oligomer_AB42"
+        supports: "Second-order oligomer-fibril de-oligomerization"
+
+  - name: OligomerToProtofibril_AB42_BrainISF
+    reactants:
+      - AB42_oligomer_BrainISF
+    products:
+      - AB42_protofibril_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_c_AB42
+    evidence:
+      - source: "Elbert FibrilNumberFormation_AB42_BrainISF abstraction"
+        supports: "Oligomer maturation toward fibrillar states"
+    rate_law_evidence:
+      - source: "Elbert parameter k_c_AB42"
+        supports: "Conversion rate from oligomer to fibril precursor"
+
+  - name: ProtofibrilToOligomer_AB42_BrainISF
+    reactants:
+      - AB42_protofibril_BrainISF
+    products:
+      - AB42_oligomer_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_proto_back_AB42
+    evidence:
+      - source: "Tier-1 reversible aggregation closure"
+        supports: "Protofibril reversibility"
+    rate_law_evidence:
+      - source: "Estimated from oligomer off-pathway dynamics"
+        supports: "First-order back-conversion"
+
+  - name: FibrilMassIncreaseFromProto_AB42_BrainISF
+    reactants:
+      - AB42_monomer_BrainISF
+      - AB42_protofibril_BrainISF
+    products:
+      - AB42_fibril_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "2 * k_plus_AB42 * (AB42_monomer_BrainISF / V_BrainISF) * (AB42_protofibril_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_plus_AB42
+      - V_BrainISF
+    evidence:
+      - source: "Elbert FibrilMassIncrease_AB42_BrainISF mapped to explicit protofibril species"
+        supports: "Monomer addition drives fibril mass increase"
+    rate_law_evidence:
+      - pmid: "22406560"
+        source: "Cohen et al. 2012"
+        supports: "dM/dt proportional to elongation constant and monomer*seed"
+
+  - name: FibrilMassIncreaseFromFibrilTemplate_AB42_BrainISF
+    reactants:
+      - AB42_monomer_BrainISF
+      - AB42_fibril_BrainISF
+    products:
+      - AB42_fibril_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "2 * k_plus2_AB42 * (AB42_monomer_BrainISF / V_BrainISF) * (AB42_fibril_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_plus2_AB42
+      - V_BrainISF
+    evidence:
+      - source: "Knowles/Cohen elongation framework"
+        supports: "Fibril-end templated monomer addition"
+    rate_law_evidence:
+      - pmid: "19953381"
+        source: "Hellstrand et al. 2010"
+        supports: "AB42 elongation dominated by monomer-fibril end interactions"
+
+  - name: FibrilFragmentation_AB42_BrainISF
+    reactants:
+      - AB42_fibril_BrainISF
+    products:
+      - AB42_protofibril_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_frag_AB42
+    evidence:
+      - source: "Knowles breakable filament formalism"
+        supports: "Fragmentation generates new growth-competent fibril seeds"
+    rate_law_evidence:
+      - pmid: "19700509"
+        source: "Knowles et al. 2009"
+        supports: "Fragmentation term included in filament assembly kinetics"
+
+  - name: FibrilMassDepolymerization_AB42_BrainISF
+    reactants:
+      - AB42_fibril_BrainISF
+    products:
+      - AB42_monomer_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_off_AB42
+    evidence:
+      - source: "Elbert reaction FibrilMassDepolymerization_AB42_BrainISF"
+        supports: "Fibril off-rate returns monomer"
+    rate_law_evidence:
+      - source: "Elbert parameter k_off_AB42"
+        supports: "First-order fibril depolymerization"
+
+  - name: ProtofibrilDepolymerization_AB42_BrainISF
+    reactants:
+      - AB42_protofibril_BrainISF
+    products:
+      - AB42_monomer_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_proto_off_AB42
+    evidence:
+      - source: "Tier-1 simplification"
+        supports: "Protofibril instability contributes to soluble monomer pool"
+    rate_law_evidence:
+      - source: "Estimated from oligomer/protofibril turnover"
+        supports: "First-order protofibril dissociation"
+
+  - name: OligomerDegradation_AB42_BrainISF
+    reactants:
+      - AB42_oligomer_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - IDE_Kcat_ISF_AB42_Oligomer
+    evidence:
+      - source: "Elbert reaction OligomerDegradation_AB42_BrainISF"
+        supports: "Proteolytic oligomer clearance"
+    rate_law_evidence:
+      - source: "Elbert parameter IDE_Kcat_ISF_AB42_Oligomer"
+        supports: "First-order oligomer degradation"
+
+  - name: ProtofibrilDegradation_AB42_BrainISF
+    reactants:
+      - AB42_protofibril_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_clear_proto_AB42
+    evidence:
+      - source: "Tier-1 simplification"
+        supports: "Lumped protofibril clearance"
+    rate_law_evidence:
+      - source: "Estimated low-rate proteostatic clearance"
+        supports: "First-order sink"
+
+  - name: FibrilDegradation_AB42_BrainISF
+    reactants:
+      - AB42_fibril_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_clear_fibril_AB42
+    evidence:
+      - source: "Elbert microglia-mediated fibril removal motif (simplified)"
+        supports: "Baseline fibril clearance term"
+    rate_law_evidence:
+      - source: "Tier-1 approximation"
+        supports: "First-order fibril sink"
+
+  - name: PrimaryOligomerization_AB40_BrainISF
+    reactants:
+      - AB40_monomer_BrainISF
+    products:
+      - AB40_oligomer_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "n_oligo1_AB40 * k_oligo1_AB40 * (AB40_monomer_BrainISF / V_BrainISF)^n_oligo1_AB40"
+    rate_parameters:
+      - n_oligo1_AB40
+      - k_oligo1_AB40
+      - V_BrainISF
+    evidence:
+      - source: "Elbert noSILK 1c reaction PrimaryOligomerization_AB40_BrainISF"
+        supports: "Primary AB40 oligomerization"
+    rate_law_evidence:
+      - source: "Elbert parameters n_oligo1_AB40, k_oligo1_AB40"
+        supports: "Power-law nucleation for AB40"
+
+  - name: SecondaryOligomerization_AB40_BrainISF
+    reactants:
+      - AB40_monomer_BrainISF
+    products:
+      - AB40_oligomer_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "n_oligo2_AB40 * k_oligo2_AB40 * (AB40_monomer_BrainISF / V_BrainISF)^n_oligo2_AB40 * (AB40_fibril_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - n_oligo2_AB40
+      - k_oligo2_AB40
+      - V_BrainISF
+    evidence:
+      - source: "Elbert noSILK 1c reaction SecondaryOligomerization_AB40_BrainISF"
+        supports: "Fibril-catalyzed AB40 oligomerization"
+    rate_law_evidence:
+      - source: "Knowles/Cohen secondary nucleation form"
+        supports: "Monomer^n * fibril catalytic term"
+
+  - name: DeOligomerization_AB40_BrainISF
+    reactants:
+      - AB40_oligomer_BrainISF
+    products:
+      - AB40_monomer_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_d1_Oligomer_AB40
+    evidence:
+      - source: "Elbert reaction DeOligomerization_AB40_BrainISF"
+        supports: "AB40 oligomer reversibility"
+    rate_law_evidence:
+      - source: "Elbert parameter k_d1_Oligomer_AB40"
+        supports: "First-order AB40 de-oligomerization"
+
+  - name: SecondaryDeOligomerization_AB40_BrainISF
+    reactants:
+      - AB40_oligomer_BrainISF
+    products:
+      - AB40_monomer_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_d2_Oligomer_AB40 * (AB40_oligomer_BrainISF / V_BrainISF) * (AB40_fibril_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_d2_Oligomer_AB40
+      - V_BrainISF
+    evidence:
+      - source: "Elbert reaction SecondaryDeOligomerization_AB40_BrainISF"
+        supports: "Fibril-coupled AB40 de-oligomerization"
+    rate_law_evidence:
+      - source: "Elbert parameter k_d2_Oligomer_AB40"
+        supports: "Second-order oligomer-fibril interaction"
+
+  - name: OligomerToProtofibril_AB40_BrainISF
+    reactants:
+      - AB40_oligomer_BrainISF
+    products:
+      - AB40_protofibril_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_c_AB40
+    evidence:
+      - source: "Elbert FibrilNumberFormation_AB40_BrainISF abstraction"
+        supports: "AB40 oligomer maturation toward fibrils"
+    rate_law_evidence:
+      - source: "Elbert parameter k_c_AB40"
+        supports: "Oligomer-to-fibril precursor conversion"
+
+  - name: FibrilMassIncreaseFromProto_AB40_BrainISF
+    reactants:
+      - AB40_monomer_BrainISF
+      - AB40_protofibril_BrainISF
+    products:
+      - AB40_fibril_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "2 * k_plus_AB40 * (AB40_monomer_BrainISF / V_BrainISF) * (AB40_protofibril_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_plus_AB40
+      - V_BrainISF
+    evidence:
+      - source: "Elbert FibrilMassIncrease_AB40_BrainISF mapping"
+        supports: "AB40 fibril elongation"
+    rate_law_evidence:
+      - source: "Elbert parameter k_plus_AB40"
+        supports: "Monomer-seed elongation proportional term"
+
+  - name: FibrilFragmentation_AB40_BrainISF
+    reactants:
+      - AB40_fibril_BrainISF
+    products:
+      - AB40_protofibril_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_frag_AB40
+    evidence:
+      - source: "Knowles filament fragmentation mechanism"
+        supports: "Generates additional AB40 fibril seeds"
+    rate_law_evidence:
+      - source: "Strategy amyloid cascade section 3.3"
+        supports: "Fragmentation optional term in nucleated polymerization"
+
+  - name: FibrilMassDepolymerization_AB40_BrainISF
+    reactants:
+      - AB40_fibril_BrainISF
+    products:
+      - AB40_monomer_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_off_AB40
+    evidence:
+      - source: "Elbert reaction FibrilMassDepolymerization_AB40_BrainISF"
+        supports: "AB40 fibril off-rate"
+    rate_law_evidence:
+      - source: "Elbert parameter k_off_AB40"
+        supports: "First-order AB40 depolymerization"
+
+  - name: OligomerDegradation_AB40_BrainISF
+    reactants:
+      - AB40_oligomer_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - IDE_Kcat_ISF_AB40_Oligomer
+    evidence:
+      - source: "Elbert reaction OligomerDegradation_AB40_BrainISF"
+        supports: "AB40 oligomer enzymatic clearance"
+    rate_law_evidence:
+      - source: "Elbert parameter IDE_Kcat_ISF_AB40_Oligomer"
+        supports: "First-order AB40 oligomer clearance"
+
+  - name: ProtofibrilDegradation_AB40_BrainISF
+    reactants:
+      - AB40_protofibril_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_clear_proto_AB40
+    evidence:
+      - source: "Tier-1 simplification"
+        supports: "Lumped AB40 protofibril clearance"
+    rate_law_evidence:
+      - source: "Estimated"
+        supports: "First-order sink"
+
+  - name: FibrilDegradation_AB40_BrainISF
+    reactants:
+      - AB40_fibril_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_clear_fibril_AB40
+    evidence:
+      - source: "Tier-1 simplification from Elbert microglia motifs"
+        supports: "Lumped AB40 fibril clearance"
+    rate_law_evidence:
+      - source: "Estimated"
+        supports: "Slow first-order sink"
+
+  - name: CrossSeeding_AB40Fibril_to_AB42Oligomer
+    reactants:
+      - AB42_monomer_BrainISF
+      - AB40_fibril_BrainISF
+    products:
+      - AB42_oligomer_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_cross_40to42 * (AB42_monomer_BrainISF / V_BrainISF) * (AB40_fibril_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_cross_40to42
+      - V_BrainISF
+    evidence:
+      - source: "Strategy amyloid cascade cross-isoform aggregation rationale"
+        supports: "AB40 fibrils can modulate AB42 nucleation environment"
+    rate_law_evidence:
+      - source: "Tier-1 cross-seeding abstraction"
+        supports: "Second-order cross-species templating term"
+
+  - name: CrossSeeding_AB42Fibril_to_AB40Oligomer
+    reactants:
+      - AB40_monomer_BrainISF
+      - AB42_fibril_BrainISF
+    products:
+      - AB40_oligomer_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_cross_42to40 * (AB40_monomer_BrainISF / V_BrainISF) * (AB42_fibril_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_cross_42to40
+      - V_BrainISF
+    evidence:
+      - source: "Strategy amyloid cascade cross-isoform aggregation rationale"
+        supports: "AB42 fibrils can seed AB40 assembly"
+    rate_law_evidence:
+      - source: "Tier-1 cross-seeding abstraction"
+        supports: "Second-order cross-species templating term"
+
+  - name: FibrilToPlaque_AB42_BrainISF_to_BrainParenchyma
+    reactants:
+      - AB42_fibril_BrainISF
+    products:
+      - AB_plaque_BrainParenchyma
+    rate_type: UDF
+    rate_parameters:
+      - k_plaque_dep_AB42
+    evidence:
+      - source: "Elbert reactions FibrilMassToDiffusePlaqueMass_AB42_BrainISF and k_plaque2"
+        supports: "AB42 fibril deposition into plaque mass"
+    rate_law_evidence:
+      - source: "Strategy section 4.3.1"
+        supports: "First-order fibril-to-plaque deposition"
+
+  - name: FibrilToPlaque_AB40_BrainISF_to_BrainParenchyma
+    reactants:
+      - AB40_fibril_BrainISF
+    products:
+      - AB_plaque_BrainParenchyma
+    rate_type: UDF
+    rate_parameters:
+      - k_plaque_dep_AB40
+    evidence:
+      - source: "Elbert plaque conversion motifs for AB40"
+        supports: "AB40 contributes to deposited plaque pool"
+    rate_law_evidence:
+      - source: "Tier-1 simplification"
+        supports: "First-order deposition from fibrillar AB40"
+
+  - name: PlaqueNucleationFromProtofibrils_BrainParenchyma
+    reactants:
+      - AB42_protofibril_BrainISF
+      - AB40_protofibril_BrainISF
+    products:
+      - AB_plaque_BrainParenchyma
+    rate_type: custom_conc_per_time
+    rate_equation: "k_plaque_nuc * (AB42_protofibril_BrainISF / V_BrainISF) * (AB40_protofibril_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_plaque_nuc
+      - V_BrainISF
+    evidence:
+      - source: "Strategy plaque dynamics and Elbert plaque-number conversion motifs"
+        supports: "Cooperative protofibril deposition into plaque"
+    rate_law_evidence:
+      - source: "Tier-1 cooperative plaque seeding abstraction"
+        supports: "Second-order protofibril driven plaque nucleation"
+
+  - name: PlaqueClearance_BrainParenchyma
+    reactants:
+      - AB_plaque_BrainParenchyma
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_plaque_clear
+    evidence:
+      - source: "Strategy section 4.3.10"
+        supports: "Baseline microglia-mediated plaque removal"
+    rate_law_evidence:
+      - source: "Strategy recommended simplified plaque sink"
+        supports: "First-order plaque clearance in amyloid-only module"
+
+  - name: PlaqueSheddingToAB42Monomer_BrainParenchyma
+    reactants:
+      - AB_plaque_BrainParenchyma
+    products:
+      - AB42_monomer_BrainISF
+    rate_type: UDF
+    rate_parameters:
+      - k_plaque_shed
+    evidence:
+      - source: "Tier-1 closure assumption"
+        supports: "Low-rate resolubilization from plaque to soluble AB42"
+    rate_law_evidence:
+      - source: "Model closure"
+        supports: "Small first-order backflux from insoluble pool"
+
+parameters:
+  - name: V_BrainISF
+    value: 0.25
+    units: L
+    confidence: measured
+    source: "Compartment definition BrainISF"
+
+  - name: V_BrainParenchyma
+    value: 1.0
+    units: L
+    confidence: measured
+    source: "Compartment definition BrainParenchyma"
+
+  - name: n_oligo1_AB42
+    value: 0.8
+    units: dimensionless
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "n_oligo1_AB42 = 0.8"
+
+  - name: n_oligo2_AB42
+    value: 0.9
+    units: dimensionless
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "n_oligo2_AB42 = 0.9"
+
+  - name: k_oligo1_AB42
+    value: 8.433331484695378e-10
+    units: 1/(nM^0.8*hr)
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "k_oligo1_AB42 = 8.433331484695378e-10"
+
+  - name: k_oligo2_AB42
+    value: 1.1501380197158753e-05
+    units: 1/(nM^0.9*hr)
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "k_oligo2_AB42 = 1.1501380197158753e-05"
+
+  - name: k_d1_Oligomer_AB42
+    value: 2.6535853764671397e-07
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "k_d1_Oligomer_AB42 = 2.6535853764671397e-07"
+
+  - name: k_d2_Oligomer_AB42
+    value: 1.5751342163023986e-06
+    units: 1/(nM*hr)
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "k_d2_Oligomer_AB42 = 1.5751342163023986e-06"
+
+  - name: k_c_AB42
+    value: 7.789013374669295e-08
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "k_c_AB42 = 7.789013374669295e-08"
+
+  - name: k_plus_AB42
+    value: 40.54063690907045
+    units: 1/(nM*hr)
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "k_plus_AB42 = 40.54063690907045"
+
+  - name: k_plus2_AB42
+    value: 36.0
+    units: 1/(nM*hr)
+    confidence: measured
+    source: "Cohen et al. secondary nucleation mapping in strategy"
+    evidence:
+      - pmid: "24270810"
+        source: "Cohen et al. 2013"
+        supports: "Converted aggregation-scale constant in nM/hr framework"
+
+  - name: k_off_AB42
+    value: 1.144657441951422e-06
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "k_off_AB42 = 1.144657441951422e-06"
+
+  - name: IDE_Kcat_ISF_AB42_Oligomer
+    value: 1.592043051184853e-04
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert noSILK 1h parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1h_parameters.txt"
+        snippet: "IDE_Kcat_ISF_AB42_Oligomer = 0.0001592043051184853"
+
+  - name: k_proto_back_AB42
+    value: 5.0e-05
+    units: 1/hr
+    confidence: assumed
+    source: "Tier-1 reversible closure assumption"
+  - name: k_proto_off_AB42
+    value: 2.0e-05
+    units: 1/hr
+    confidence: assumed
+    source: "Tier-1 reversible closure assumption"
+  - name: k_frag_AB42
+    value: 1.0e-05
+    units: 1/hr
+    confidence: estimated
+    source: "Strategy range 1e-6 to 1e-4 /hr"
+  - name: k_clear_proto_AB42
+    value: 8.0e-05
+    units: 1/hr
+    confidence: assumed
+    source: "Tier-1 lumped protofibril clearance"
+  - name: k_clear_fibril_AB42
+    value: 4.0e-05
+    units: 1/hr
+    confidence: assumed
+    source: "Tier-1 lumped fibril clearance"
+
+  - name: n_oligo1_AB40
+    value: 0.8
+    units: dimensionless
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "n_oligo1_AB40 = 0.8"
+
+  - name: n_oligo2_AB40
+    value: 0.9
+    units: dimensionless
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "n_oligo2_AB40 = 0.9"
+
+  - name: k_oligo1_AB40
+    value: 6.692e-05
+    units: 1/(nM^0.8*hr)
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters (9.56e-7*70)"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "k_oligo1_AB40 = 9.56e-7*70"
+
+  - name: k_oligo2_AB40
+    value: 5.5e-05
+    units: 1/(nM^0.9*hr)
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "k_oligo2_AB40 = 5.5e-5"
+
+  - name: k_d1_Oligomer_AB40
+    value: 0.01
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "k_d1_Oligomer_AB40 = 0.01"
+
+  - name: k_d2_Oligomer_AB40
+    value: 0.01
+    units: 1/(nM*hr)
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "k_d2_Oligomer_AB40 = 0.01"
+
+  - name: k_c_AB40
+    value: 4.0e-09
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "k_c_AB40 = 4e-9"
+
+  - name: k_plus_AB40
+    value: 10.8
+    units: 1/(nM*hr)
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "k_plus_AB40 = 10.8"
+
+  - name: k_off_AB40
+    value: 0.001
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters (0.01/10)"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "k_off_AB40 = 0.01/10"
+
+  - name: IDE_Kcat_ISF_AB40_Oligomer
+    value: 1.0e-08
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert noSILK 1c parameters"
+    evidence:
+      - source: "Antimony_Elbert_Esguerra_noSILK_1c_parameters.txt"
+        snippet: "IDE_Kcat_ISF_AB40_Oligomer = 0.0"
+
+  - name: k_frag_AB40
+    value: 2.0e-05
+    units: 1/hr
+    confidence: estimated
+    source: "Strategy range 1e-6 to 1e-4 /hr"
+  - name: k_clear_proto_AB40
+    value: 1.0e-04
+    units: 1/hr
+    confidence: assumed
+    source: "Tier-1 lumped protofibril clearance"
+  - name: k_clear_fibril_AB40
+    value: 5.0e-05
+    units: 1/hr
+    confidence: assumed
+    source: "Tier-1 lumped fibril clearance"
+
+  - name: k_cross_40to42
+    value: 2.5e-03
+    units: 1/(nM*hr)
+    confidence: assumed
+    source: "Tier-1 cross-seeding assumption"
+  - name: k_cross_42to40
+    value: 8.0e-04
+    units: 1/(nM*hr)
+    confidence: assumed
+    source: "Tier-1 cross-seeding assumption"
+
+  - name: k_plaque_dep_AB42
+    value: 0.01
+    units: 1/hr
+    confidence: estimated
+    source: "Strategy section 4.3.1 and Elbert plaque conversion"
+    evidence:
+      - source: "Strategy_amyloid_cascade parameter table"
+        snippet: "k_dep 0.001-0.05 /hr"
+
+  - name: k_plaque_dep_AB40
+    value: 0.004
+    units: 1/hr
+    confidence: assumed
+    source: "Tier-1 lower AB40 plaque deposition assumption"
+
+  - name: k_plaque_nuc
+    value: 2.0e-03
+    units: 1/(nM*hr)
+    confidence: assumed
+    source: "Tier-1 cooperative plaque nucleation assumption"
+
+  - name: k_plaque_clear
+    value: 1.0e-04
+    units: 1/hr
+    confidence: assumed
+    source: "Strategy section 4.3.10"
+    evidence:
+      - source: "Strategy_amyloid_cascade.md"
+        snippet: "k_plaque_clear: 1e-5 to 1e-3 /hr"
+
+  - name: k_plaque_shed
+    value: 1.0e-06
+    units: 1/hr
+    confidence: assumed
+    source: "Tier-1 plaque backflux closure"
+
+rules: []
+
+evidence:
+  - pmid: "27025652"
+    source: "Selkoe and Hardy 2016"
+    supports: "Amyloid cascade mechanistic framing"
+  - pmid: "24270810"
+    source: "Cohen et al. 2013"
+    supports: "Secondary nucleation dominates AB42 aggregate proliferation"
+  - pmid: "19700509"
+    source: "Knowles et al. 2009"
+    supports: "Nucleated polymerization and breakable filament kinetics"
+  - pmid: "19953381"
+    source: "Hellstrand et al. 2010"
+    supports: "AB42 elongation kinetics"
+  - source: "Elbert Esguerra noSILK 1c/1h antimony models"
+    supports: "Species naming conventions and baseline AB40/AB42 aggregation constants"

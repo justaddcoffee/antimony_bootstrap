@@ -1,0 +1,704 @@
+name: amyloid_production
+description: >
+  Tier 1 core amyloid production module for Alzheimer's disease ODE models.
+  Captures APP synthesis, alpha/beta/gamma-secretase processing, CTF handling,
+  AB40/AB42 generation, and local degradation in neuron and brain interstitial
+  fluid compartments.
+mechanism: "Amyloid Cascade"
+notes: "Tier: 1 (core). Elbert EndoLysNeuron kinetics mapped to Neuron compartment."
+
+compartments:
+  - name: Neuron
+    volume_parameter: V_Neuron
+    volume_value: 0.5
+    volume_units: L
+    notes: "Mapped from Elbert intracellular APP processing space (EndoLysNeuron)."
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.25
+    volume_units: L
+    notes: "Brain interstitial fluid receiving soluble APP fragments and AB peptides."
+
+species:
+  - name: APP_Neuron
+    initial_amount: 1.0e-12
+    units: mol
+  - name: BACE1_Neuron
+    initial_amount: 1.0
+    units: mol
+  - name: GAMMA_SECRETASE_Neuron
+    initial_amount: 1.0
+    units: mol
+  - name: sAPPalpha_BrainISF
+    initial_amount: 0.0
+    units: mol
+  - name: sAPPbeta_BrainISF
+    initial_amount: 0.0
+    units: mol
+  - name: CTFalpha_Neuron
+    initial_amount: 0.0
+    units: mol
+  - name: CTFbeta_Neuron
+    initial_amount: 0.0
+    units: mol
+  - name: C83_Neuron
+    initial_amount: 1.0e-12
+    units: mol
+  - name: C99_Neuron
+    initial_amount: 1.0e-12
+    units: mol
+  - name: AB40_BrainISF
+    initial_amount: 1.0e-9
+    units: mol
+  - name: AB42_BrainISF
+    initial_amount: 1.0e-9
+    units: mol
+  - name: AICD_Neuron
+    initial_amount: 0.0
+    units: mol
+  - name: p3_BrainISF
+    initial_amount: 0.0
+    units: mol
+
+reactions:
+  - name: APPSynthesis_Neuron
+    reactants: []
+    products:
+      - APP_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_APP
+    evidence:
+      - source: "Elbert 1a reaction APPSynthesis_BrainISF"
+        snippet: "APPSynthesis_BrainISF : -> APP_BrainISF; k_APP*(1-(f_L)) * V_BrainISF"
+        supports: "APP source term exists in reference model"
+    rate_law_evidence:
+      - source: "Elbert 1a parameter k_APP"
+        snippet: "k_APP = 10.422765512677959"
+        supports: "Mass-action production constant for APP synthesis"
+
+  - name: APPDegradation_Neuron
+    reactants:
+      - APP_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_APP_deg
+    evidence:
+      - source: "Model completion assumption"
+        snippet: "APP turnover included for bounded steady state"
+        supports: "APP degradation sink"
+    rate_law_evidence:
+      - source: "Steady-state estimate"
+        supports: "First-order APP decay approximation"
+
+  - name: APP_AlphaCleavage_Neuron
+    reactants:
+      - APP_Neuron
+    products:
+      - sAPPalpha_BrainISF
+      - C83_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vm_APP_C83 / Km_APP_C83) * (APP_Neuron / V_Neuron) / (1 + (APP_Neuron / V_Neuron) / Km_APP_C83 + (C99_Neuron / V_Neuron) / Km_C99_C83)"
+    rate_parameters:
+      - Vm_APP_C83
+      - Km_APP_C83
+      - Km_C99_C83
+      - V_Neuron
+    evidence:
+      - source: "Elbert 1a reaction C83Synthesis_BrainISF"
+        snippet: "C83Synthesis_BrainISF : APP_BrainISF -> C83_BrainISF + sAPPa_BrainISF; ..."
+        supports: "Alpha-secretase processing of APP to C83 and sAPPalpha"
+    rate_law_evidence:
+      - source: "Elbert 1a C83Synthesis_BrainISF denominator structure"
+        supports: "Michaelis-Menten-like form with APP and C99 competition"
+
+  - name: APP_BetaCleavage_Neuron
+    reactants:
+      - APP_Neuron
+    products:
+      - sAPPbeta_BrainISF
+      - C99_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vm_APP_C99 / Km_APP_C99) * (APP_Neuron / V_Neuron) / (1 + (APP_Neuron / V_Neuron) / Km_APP_C99) * (BACE1_Neuron / BACE1_ref)"
+    rate_parameters:
+      - Vm_APP_C99
+      - Km_APP_C99
+      - BACE1_ref
+      - V_Neuron
+    evidence:
+      - source: "Elbert 1a reaction C99Synthesis_EndoLysNeuron"
+        snippet: "C99Synthesis_EndoLysNeuron : APP_EndoLysNeuron -> C99_EndoLysNeuron + sAPPb_BrainISF; ..."
+        supports: "Beta-secretase processing of APP to C99 and sAPPbeta"
+    rate_law_evidence:
+      - source: "Elbert 1a C99Synthesis_EndoLysNeuron"
+        supports: "Michaelis-Menten substrate-saturation form for APP to C99"
+
+  - name: C99_to_C83_Neuron
+    reactants:
+      - C99_Neuron
+    products:
+      - C83_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vm_C99_C83 / Km_C99_C83) * (C99_Neuron / V_Neuron) / (1 + (APP_Neuron / V_Neuron) / Km_APP_C83 + (C99_Neuron / V_Neuron) / Km_C99_C83)"
+    rate_parameters:
+      - Vm_C99_C83
+      - Km_C99_C83
+      - Km_APP_C83
+      - V_Neuron
+    evidence:
+      - source: "Elbert 1a reaction C99toC83_BrainISF"
+        snippet: "C99toC83_BrainISF : C99_BrainISF -> C83_BrainISF; ..."
+        supports: "C99 conversion to C83 branch in reference model"
+    rate_law_evidence:
+      - source: "Elbert 1a C99toC83_BrainISF"
+        supports: "Competitive Michaelis-Menten form with APP/C99 in denominator"
+
+  - name: C83_to_p3_AICD_Neuron
+    reactants:
+      - C83_Neuron
+    products:
+      - p3_BrainISF
+      - AICD_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(Vm_C83_p3 / Km_C83_p3) * (C83_Neuron / V_Neuron) / (1 + (C83_Neuron / V_Neuron) / Km_C83_p3 + (C99_Neuron / V_Neuron) / Km_C99_Abeta) * (GAMMA_SECRETASE_Neuron / GAMMA_SECRETASE_ref)"
+    rate_parameters:
+      - Vm_C83_p3
+      - Km_C83_p3
+      - Km_C99_Abeta
+      - GAMMA_SECRETASE_ref
+      - V_Neuron
+    evidence:
+      - source: "Elbert 1a reaction C83toP3_EndoLysNeuron"
+        snippet: "C83toP3_EndoLysNeuron : C83_EndoLysNeuron -> p3_EndoLysNeuron; ..."
+        supports: "Gamma-secretase cleavage of C83 into non-amyloidogenic products"
+    rate_law_evidence:
+      - source: "Elbert 1a C83toP3_EndoLysNeuron"
+        supports: "Michaelis-Menten with C83/C99 competition and gamma-secretase dependence"
+
+  - name: C99_to_AB40_AICD_Neuron
+    reactants:
+      - C99_Neuron
+    products:
+      - AB40_BrainISF
+      - AICD_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(k_gammasec_AB40 / Km_C99_Abeta) * (C99_Neuron / V_Neuron) / (1 + (C83_Neuron / V_Neuron) / Km_C83_p3 + (C99_Neuron / V_Neuron) / Km_C99_Abeta) * (GAMMA_SECRETASE_Neuron / GAMMA_SECRETASE_ref)"
+    rate_parameters:
+      - k_gammasec_AB40
+      - Km_C99_Abeta
+      - Km_C83_p3
+      - GAMMA_SECRETASE_ref
+      - V_Neuron
+    evidence:
+      - source: "Elbert 1a reaction AB40Synthesis_BrainISF"
+        snippet: "AB40Synthesis_BrainISF : C99_EndoLysNeuron -> AB40_BrainISF; ..."
+        supports: "Gamma-secretase production of AB40 from C99"
+    rate_law_evidence:
+      - source: "Elbert 1a AB40Synthesis_BrainISF"
+        supports: "Saturable C99 cleavage with C83/C99 denominator competition"
+
+  - name: C99_to_AB42_AICD_Neuron
+    reactants:
+      - C99_Neuron
+    products:
+      - AB42_BrainISF
+      - AICD_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "(k_gammasec_AB42 / Km_C99_Abeta) * (C99_Neuron / V_Neuron) / (1 + (C83_Neuron / V_Neuron) / Km_C83_p3 + (C99_Neuron / V_Neuron) / Km_C99_Abeta) * (GAMMA_SECRETASE_Neuron / GAMMA_SECRETASE_ref)"
+    rate_parameters:
+      - k_gammasec_AB42
+      - Km_C99_Abeta
+      - Km_C83_p3
+      - GAMMA_SECRETASE_ref
+      - V_Neuron
+    evidence:
+      - source: "Elbert 1a reaction AB42Synthesis_BrainISF"
+        snippet: "AB42Synthesis_BrainISF : C99_EndoLysNeuron -> AB42_BrainISF; ..."
+        supports: "Gamma-secretase production of AB42 from C99"
+    rate_law_evidence:
+      - source: "Elbert 1a AB42Synthesis_BrainISF"
+        supports: "Saturable C99 cleavage form reused for AB42 branch"
+
+  - name: AB40Degradation_BrainISF
+    reactants:
+      - AB40_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - IDE_Kcat_ISF_AB40
+    evidence:
+      - source: "Elbert 1a reaction AB40Degradation_BrainISF"
+        snippet: "AB40Degradation_BrainISF : AB40_BrainISF ->; IDE_Kcat_ISF_AB40 * ..."
+        supports: "AB40 ISF first-order degradation"
+    rate_law_evidence:
+      - source: "Elbert 1a parameter IDE_Kcat_ISF_AB40"
+        supports: "Mass-action first-order clearance constant"
+
+  - name: AB42Degradation_BrainISF
+    reactants:
+      - AB42_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - IDE_Kcat_ISF_AB42
+    evidence:
+      - source: "Elbert 1a reaction AB42Degradation_BrainISF"
+        snippet: "AB42Degradation_BrainISF : AB42_BrainISF ->; IDE_Kcat_ISF_AB42 * ..."
+        supports: "AB42 ISF first-order degradation"
+    rate_law_evidence:
+      - source: "Elbert 1a parameter IDE_Kcat_ISF_AB42"
+        supports: "Mass-action first-order clearance constant"
+
+  - name: sAPPalphaDegradation_BrainISF
+    reactants:
+      - sAPPalpha_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_sAPPalpha_deg
+    evidence:
+      - source: "Strategy and module closure assumption"
+        supports: "Include soluble sAPPalpha turnover sink"
+    rate_law_evidence:
+      - source: "Steady-state estimate"
+        supports: "First-order degradation approximation for sAPPalpha"
+
+  - name: sAPPbetaDegradation_BrainISF
+    reactants:
+      - sAPPbeta_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_sAPPbeta_deg
+    evidence:
+      - source: "Strategy and module closure assumption"
+        supports: "Include soluble sAPPbeta turnover sink"
+    rate_law_evidence:
+      - source: "Steady-state estimate"
+        supports: "First-order degradation approximation for sAPPbeta"
+
+  - name: AICDDegradation_Neuron
+    reactants:
+      - AICD_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_AICD_deg
+    evidence:
+      - source: "Strategy and module closure assumption"
+        supports: "Include AICD turnover sink"
+    rate_law_evidence:
+      - source: "Steady-state estimate"
+        supports: "First-order AICD degradation approximation"
+
+  - name: C83_to_CTFalpha_Neuron
+    reactants:
+      - C83_Neuron
+    products:
+      - CTFalpha_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_C83_to_CTFalpha
+    evidence:
+      - source: "Alias bookkeeping for required species set"
+        supports: "Expose both C83 and CTFalpha states"
+    rate_law_evidence:
+      - source: "Steady-state estimate"
+        supports: "First-order interconversion link"
+
+  - name: CTFalpha_to_C83_Neuron
+    reactants:
+      - CTFalpha_Neuron
+    products:
+      - C83_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_CTFalpha_to_C83
+    evidence:
+      - source: "Alias bookkeeping for required species set"
+        supports: "Allow reversible mapping between CTFalpha and C83 pools"
+    rate_law_evidence:
+      - source: "Steady-state estimate"
+        supports: "First-order reverse interconversion link"
+
+  - name: C99_to_CTFbeta_Neuron
+    reactants:
+      - C99_Neuron
+    products:
+      - CTFbeta_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_C99_to_CTFbeta
+    evidence:
+      - source: "Alias bookkeeping for required species set"
+        supports: "Expose both C99 and CTFbeta states"
+    rate_law_evidence:
+      - source: "Steady-state estimate"
+        supports: "First-order interconversion link"
+
+  - name: CTFbeta_to_C99_Neuron
+    reactants:
+      - CTFbeta_Neuron
+    products:
+      - C99_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_CTFbeta_to_C99
+    evidence:
+      - source: "Alias bookkeeping for required species set"
+        supports: "Allow reversible mapping between CTFbeta and C99 pools"
+    rate_law_evidence:
+      - source: "Steady-state estimate"
+        supports: "First-order reverse interconversion link"
+
+  - name: BACE1Synthesis_Neuron
+    reactants: []
+    products:
+      - BACE1_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_BACE1_synth
+    evidence:
+      - source: "Strategy document (enzyme-centered APP processing)"
+        supports: "Explicit BACE1 state retained in module"
+    rate_law_evidence:
+      - source: "Steady-state estimate"
+        supports: "Zero-order synthesis for constitutive BACE1 pool"
+
+  - name: BACE1Degradation_Neuron
+    reactants:
+      - BACE1_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_BACE1_deg
+    evidence:
+      - source: "Strategy document (enzyme turnover)"
+        supports: "Bounded BACE1 dynamics"
+    rate_law_evidence:
+      - source: "Steady-state estimate"
+        supports: "First-order BACE1 degradation"
+
+  - name: GammaSecretaseSynthesis_Neuron
+    reactants: []
+    products:
+      - GAMMA_SECRETASE_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_GAMMA_SECRETASE_synth
+    evidence:
+      - source: "Strategy document (secretase-centered APP processing)"
+        supports: "Explicit gamma-secretase state retained in module"
+    rate_law_evidence:
+      - source: "Steady-state estimate"
+        supports: "Zero-order synthesis for constitutive gamma-secretase pool"
+
+  - name: GammaSecretaseDegradation_Neuron
+    reactants:
+      - GAMMA_SECRETASE_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_GAMMA_SECRETASE_deg
+    evidence:
+      - source: "Strategy document (secretase turnover)"
+        supports: "Bounded gamma-secretase dynamics"
+    rate_law_evidence:
+      - source: "Steady-state estimate"
+        supports: "First-order gamma-secretase degradation"
+
+parameters:
+  - name: V_Neuron
+    value: 0.5
+    units: L
+    confidence: assumed
+    source: "strategy_amyloid_cascade.md minimal compartment set"
+    evidence:
+      - source: "strategy_amyloid_cascade.md"
+        snippet: "Neuron | 0.5 L"
+        supports: "Neuron compartment volume"
+
+  - name: V_BrainISF
+    value: 0.25
+    units: L
+    confidence: assumed
+    source: "abeta_production.yaml and strategy_amyloid_cascade.md"
+    evidence:
+      - source: "models/alzheimers/modules/abeta_production.yaml"
+        snippet: "BrainISF volume_value: 0.25"
+        supports: "BrainISF compartment volume"
+
+  - name: k_APP
+    value: 10.422765512677959
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert 1a parameters"
+    evidence:
+      - source: "Antimony_elbert_Esguerra_1a_parameters.txt"
+        snippet: "k_APP = 10.422765512677959"
+        supports: "APP synthesis rate constant"
+
+  - name: k_APP_deg
+    value: 0.17328679513998632
+    units: 1/hr
+    confidence: assumed
+    source: "steady-state estimate from 4 h half-life"
+    evidence:
+      - source: "Steady-state estimate"
+        supports: "APP degradation placeholder"
+
+  - name: Vm_APP_C83
+    value: 7815.454212680146
+    units: nM/hr
+    confidence: estimated
+    source: "Elbert 1a parameters"
+    evidence:
+      - source: "Antimony_elbert_Esguerra_1a_parameters.txt"
+        snippet: "Vm_APP_C83 = 7815.454212680146"
+        supports: "alpha-secretase APP-to-C83 Vmax"
+
+  - name: Km_APP_C83
+    value: 25871.369
+    units: nM
+    confidence: estimated
+    source: "Elbert 1a parameters"
+    evidence:
+      - source: "Antimony_elbert_Esguerra_1a_parameters.txt"
+        snippet: "Km_APP_C83 = 25871.369"
+        supports: "alpha-secretase APP Km"
+
+  - name: Vm_APP_C99
+    value: 13153.652892977247
+    units: nM/hr
+    confidence: estimated
+    source: "Elbert 1a parameters"
+    evidence:
+      - source: "Antimony_elbert_Esguerra_1a_parameters.txt"
+        snippet: "Vm_APP_C99 = 13153.652892977247"
+        supports: "beta-secretase APP-to-C99 Vmax"
+
+  - name: Km_APP_C99
+    value: 22731.3114464
+    units: nM
+    confidence: estimated
+    source: "Elbert 1a parameters (expression evaluated)"
+    evidence:
+      - source: "Antimony_elbert_Esguerra_1a_parameters.txt"
+        snippet: "Km_APP_C99 = 1.64*3.2012*4329.8"
+        supports: "beta-secretase APP Km"
+
+  - name: Vm_C99_C83
+    value: 7951.546377166001
+    units: nM/hr
+    confidence: estimated
+    source: "Elbert 1a parameters (expression evaluated)"
+    evidence:
+      - source: "Antimony_elbert_Esguerra_1a_parameters.txt"
+        snippet: "Vm_C99_C83 = 0.0223*82.3529*4329.8"
+        supports: "C99-to-C83 conversion Vmax"
+
+  - name: Km_C99_C83
+    value: 931.429347072
+    units: nM
+    confidence: estimated
+    source: "Elbert 1a parameters (expression evaluated)"
+    evidence:
+      - source: "Antimony_elbert_Esguerra_1a_parameters.txt"
+        snippet: "Km_C99_C83 = 0.0672*3.2012*4329.8"
+        supports: "C99-to-C83 conversion Km"
+
+  - name: Vm_C83_p3
+    value: 5205945.161732001
+    units: nM/hr
+    confidence: estimated
+    source: "Elbert 1a parameters (expression evaluated)"
+    evidence:
+      - source: "Antimony_elbert_Esguerra_1a_parameters.txt"
+        snippet: "Vm_C83_p3 = 14.6*82.3529*4329.8"
+        supports: "C83 gamma cleavage Vmax"
+
+  - name: Km_C83_p3
+    value: 399184.0058880001
+    units: nM
+    confidence: estimated
+    source: "Elbert 1a parameters (expression evaluated)"
+    evidence:
+      - source: "Antimony_elbert_Esguerra_1a_parameters.txt"
+        snippet: "Km_C83_p3 = 28.8*3.2012*4329.8"
+        supports: "C83 gamma cleavage Km"
+
+  - name: Km_C99_Abeta
+    value: 12682.408520400002
+    units: nM
+    confidence: estimated
+    source: "Elbert 1a parameters (expression evaluated)"
+    evidence:
+      - source: "Antimony_elbert_Esguerra_1a_parameters.txt"
+        snippet: "Km_C99_Abeta = 0.915*3.2012*4329.8"
+        supports: "C99 gamma cleavage Km"
+
+  - name: k_gammasec_AB40
+    value: 609798.0
+    units: nM/hr
+    confidence: estimated
+    source: "Elbert 1a parameters"
+    evidence:
+      - source: "Antimony_elbert_Esguerra_1a_parameters.txt"
+        snippet: "k_gammasec_AB40 = 609798.0"
+        supports: "AB40 branch gamma-secretase catalytic coefficient"
+
+  - name: k_gammasec_AB42
+    value: 112016.41393782072
+    units: nM/hr
+    confidence: estimated
+    source: "Elbert 1a parameters (expression evaluated)"
+    evidence:
+      - source: "Antimony_elbert_Esguerra_1a_parameters.txt"
+        snippet: "k_gammasec_AB42 = 149355.21858376096*0.75"
+        supports: "AB42 branch gamma-secretase catalytic coefficient"
+
+  - name: IDE_Kcat_ISF_AB40
+    value: 1.6
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert 1a parameters"
+    evidence:
+      - source: "Antimony_elbert_Esguerra_1a_parameters.txt"
+        snippet: "IDE_Kcat_ISF = 1.6; IDE_Kcat_ISF_AB40 = IDE_Kcat_ISF"
+        supports: "AB40 degradation rate in BrainISF"
+
+  - name: IDE_Kcat_ISF_AB42
+    value: 1.6
+    units: 1/hr
+    confidence: estimated
+    source: "Elbert 1a parameters"
+    evidence:
+      - source: "Antimony_elbert_Esguerra_1a_parameters.txt"
+        snippet: "IDE_Kcat_ISF = 1.6; IDE_Kcat_ISF_AB42 = IDE_Kcat_ISF"
+        supports: "AB42 degradation rate in BrainISF"
+
+  - name: BACE1_ref
+    value: 1.0
+    units: mol
+    confidence: assumed
+    source: "normalization constant"
+    evidence:
+      - source: "modeling assumption"
+        supports: "scales beta-cleavage by BACE1 state"
+
+  - name: GAMMA_SECRETASE_ref
+    value: 1.0
+    units: mol
+    confidence: assumed
+    source: "normalization constant"
+    evidence:
+      - source: "modeling assumption"
+        supports: "scales gamma-cleavage by gamma-secretase state"
+
+  - name: k_sAPPalpha_deg
+    value: 0.1
+    units: 1/hr
+    confidence: assumed
+    source: "steady-state estimate"
+    evidence:
+      - source: "modeling assumption"
+        supports: "first-order sAPPalpha degradation"
+
+  - name: k_sAPPbeta_deg
+    value: 0.1
+    units: 1/hr
+    confidence: assumed
+    source: "steady-state estimate"
+    evidence:
+      - source: "modeling assumption"
+        supports: "first-order sAPPbeta degradation"
+
+  - name: k_AICD_deg
+    value: 0.2
+    units: 1/hr
+    confidence: assumed
+    source: "steady-state estimate"
+    evidence:
+      - source: "modeling assumption"
+        supports: "first-order AICD degradation"
+
+  - name: k_C83_to_CTFalpha
+    value: 0.5
+    units: 1/hr
+    confidence: assumed
+    source: "steady-state estimate"
+    evidence:
+      - source: "modeling assumption"
+        supports: "C83 to CTFalpha alias conversion"
+
+  - name: k_CTFalpha_to_C83
+    value: 0.5
+    units: 1/hr
+    confidence: assumed
+    source: "steady-state estimate"
+    evidence:
+      - source: "modeling assumption"
+        supports: "CTFalpha to C83 alias conversion"
+
+  - name: k_C99_to_CTFbeta
+    value: 0.5
+    units: 1/hr
+    confidence: assumed
+    source: "steady-state estimate"
+    evidence:
+      - source: "modeling assumption"
+        supports: "C99 to CTFbeta alias conversion"
+
+  - name: k_CTFbeta_to_C99
+    value: 0.5
+    units: 1/hr
+    confidence: assumed
+    source: "steady-state estimate"
+    evidence:
+      - source: "modeling assumption"
+        supports: "CTFbeta to C99 alias conversion"
+
+  - name: k_BACE1_synth
+    value: 0.1
+    units: mol/hr
+    confidence: assumed
+    source: "steady-state estimate"
+    evidence:
+      - source: "modeling assumption"
+        supports: "BACE1 constitutive synthesis"
+
+  - name: k_BACE1_deg
+    value: 0.1
+    units: 1/hr
+    confidence: assumed
+    source: "steady-state estimate"
+    evidence:
+      - source: "modeling assumption"
+        supports: "BACE1 first-order degradation"
+
+  - name: k_GAMMA_SECRETASE_synth
+    value: 0.1
+    units: mol/hr
+    confidence: assumed
+    source: "steady-state estimate"
+    evidence:
+      - source: "modeling assumption"
+        supports: "gamma-secretase constitutive synthesis"
+
+  - name: k_GAMMA_SECRETASE_deg
+    value: 0.1
+    units: 1/hr
+    confidence: assumed
+    source: "steady-state estimate"
+    evidence:
+      - source: "modeling assumption"
+        supports: "gamma-secretase first-order degradation"
+
+evidence:
+  - source: "Elbert_Esguerra_model_v2026b antimony_models/Antimony_Elbert_Esguerra_1a_all_reactions.txt"
+    supports: "Core APP processing and AB40/AB42 production rate-law templates"
+  - source: "Elbert_Esguerra_model_v2026b antimony_models/Antimony_elbert_Esguerra_1a_parameters.txt"
+    supports: "Primary numerical parameter source"
+  - source: "plan/strategy_amyloid_cascade.md"
+    supports: "Compartment strategy and mechanistic decomposition for amyloid production module"

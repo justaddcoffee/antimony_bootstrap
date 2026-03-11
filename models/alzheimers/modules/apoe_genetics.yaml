@@ -1,0 +1,325 @@
+name: apoe_genetics
+description: >
+  Tier 4 APOE genetics module for Alzheimer's disease ODE models.
+  Encodes APOE isoform-dependent production, lipidation efficiency, LDLR/LRP1 binding,
+  and derived APOE modifier rules for cross-module effects on amyloid-beta clearance.
+mechanism: "Lipid Metabolism and ApoE Axis"
+notes: "Tier: 4. Compartment constrained to BrainISF. Primary output is genotype-dependent modifier rules for other modules."
+
+compartments:
+  - name: BrainISF
+    volume_parameter: V_BrainISF
+    volume_value: 0.25
+    volume_units: L
+    notes: "Brain interstitial fluid pool for APOE isoforms, lipidated APOE, and receptor complex dynamics."
+
+species:
+  - name: APOE2_BrainISF
+    initial_amount: 2.0e-10
+    units: mol
+  - name: APOE3_BrainISF
+    initial_amount: 8.0e-10
+    units: mol
+  - name: APOE4_BrainISF
+    initial_amount: 1.0e-10
+    units: mol
+  - name: APOE_total_BrainISF
+    initial_amount: 1.1e-9
+    units: mol
+  - name: APOE_lipidated_BrainISF
+    initial_amount: 7.5e-10
+    units: mol
+  - name: LDLR_BrainISF
+    initial_amount: 1.2e-9
+    units: mol
+  - name: LRP1_APOE_BrainISF
+    initial_amount: 1.0e-10
+    units: mol
+
+reactions:
+  - name: APOE2_Production_BrainISF
+    reactants: []
+    products:
+      - APOE2_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_APOE2_prod
+    notes: "Isoform-specific APOE2 production term."
+
+  - name: APOE3_Production_BrainISF
+    reactants: []
+    products:
+      - APOE3_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_APOE3_prod
+    notes: "Isoform-specific APOE3 production term."
+
+  - name: APOE4_Production_BrainISF
+    reactants: []
+    products:
+      - APOE4_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_APOE4_prod
+    notes: "Isoform-specific APOE4 production term (risk isoform)."
+
+  - name: APOE_Total_Formation_BrainISF
+    reactants: []
+    products:
+      - APOE_total_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_APOE_total_form * ((APOE2_BrainISF + APOE3_BrainISF + APOE4_BrainISF) / V_BrainISF)"
+    rate_parameters:
+      - k_APOE_total_form
+      - V_BrainISF
+    notes: "Lumped APOE total replenishment driven by isoform pool."
+
+  - name: APOE_Total_Turnover_BrainISF
+    reactants:
+      - APOE_total_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_APOE_total_deg
+    notes: "First-order APOE total turnover."
+
+  - name: APOE_Lipidation_BrainISF
+    reactants:
+      - APOE_total_BrainISF
+    products:
+      - APOE_lipidated_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_APOE_lipidation_base * mod_APOE_lipidation_eff * (APOE_total_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_APOE_lipidation_base
+      - V_BrainISF
+    notes: "ABCA1-linked lipidation abstraction with isoform-dependent efficiency modifier."
+
+  - name: APOE_Lipidated_Turnover_BrainISF
+    reactants:
+      - APOE_lipidated_BrainISF
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_APOE_lipidated_deg
+    notes: "First-order turnover of lipidated APOE particles."
+
+  - name: LDLR_LRP1_Binding_APOE_BrainISF
+    reactants:
+      - APOE_lipidated_BrainISF
+      - LDLR_BrainISF
+    products:
+      - LRP1_APOE_BrainISF
+    rate_type: custom_conc_per_time
+    rate_equation: "k_APOE_receptor_bind_base * mod_APOE_receptor_affinity * (APOE_lipidated_BrainISF / V_BrainISF) * (LDLR_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_APOE_receptor_bind_base
+      - V_BrainISF
+    notes: "Effective receptor-complex formation proxy for LDLR/LRP1-mediated APOE handling."
+
+  - name: LDLR_LRP1_Unbinding_APOE_BrainISF
+    reactants:
+      - LRP1_APOE_BrainISF
+    products:
+      - APOE_lipidated_BrainISF
+      - LDLR_BrainISF
+    rate_type: MA
+    rate_parameters:
+      - k_APOE_receptor_unbind
+    notes: "Reversible dissociation of APOE-receptor complex."
+
+  - name: LRP1_APOE_Clearance_BrainISF
+    reactants:
+      - LRP1_APOE_BrainISF
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_LRP1_APOE_clear_base * mod_APOE_AB_clearance * (LRP1_APOE_BrainISF / V_BrainISF)"
+    rate_parameters:
+      - k_LRP1_APOE_clear_base
+      - V_BrainISF
+    notes: "Isoform-weighted clearance term; APOE4-dominant states reduce effective AB-linked clearance capacity."
+
+parameters:
+  - name: V_BrainISF
+    value: 0.25
+    units: L
+    confidence: assumed
+    source: "compartment definition"
+    notes: "BrainISF compartment volume mirrored as explicit parameter for rate equation references."
+
+  - name: k_APOE2_prod
+    value: 2.2e-11
+    units: mol/hr
+    confidence: assumed
+    source: "strategy_lipid_apoe.md (ApoE2 protective profile)"
+    notes: "Set slightly above APOE3 to represent protective isoform expression/stability tendency."
+
+  - name: k_APOE3_prod
+    value: 2.0e-11
+    units: mol/hr
+    confidence: assumed
+    source: "strategy_lipid_apoe.md (ApoE3 reference profile)"
+    notes: "Reference isoform production rate."
+
+  - name: k_APOE4_prod
+    value: 1.8e-11
+    units: mol/hr
+    confidence: assumed
+    source: "strategy_lipid_apoe.md (ApoE4 slightly reduced production)"
+    notes: "Risk isoform production set below APOE3 baseline."
+
+  - name: k_APOE_total_form
+    value: 3.0e-2
+    units: 1/hr
+    confidence: assumed
+    source: "module construction assumption"
+    notes: "Lumped mapping from isoform pool to APOE_total."
+
+  - name: k_APOE_total_deg
+    value: 2.0e-2
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe.md (ApoE half-life 4-12 hr)"
+    notes: "Approximate APOE total turnover scale."
+
+  - name: k_APOE_lipidation_base
+    value: 5.0e-2
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe.md (k_ApoE_lipidation reference)"
+    notes: "Baseline APOE lipidation rate for E3-like context."
+
+  - name: k_APOE_lipidated_deg
+    value: 2.5e-2
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe.md (ApoE4 faster degradation trend)"
+    notes: "Turnover of lipidated APOE pool."
+
+  - name: k_APOE_receptor_bind_base
+    value: 1.2e-3
+    units: 1/(nM*hr)
+    confidence: estimated
+    source: "strategy_lipid_apoe.md (ApoE-Abeta/clearance binding scale)"
+    notes: "Reference receptor affinity scale; adjusted by isoform modifier rule."
+
+  - name: k_APOE_receptor_unbind
+    value: 1.0e-1
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe.md"
+    notes: "First-order dissociation of APOE-receptor complex."
+
+  - name: k_LRP1_APOE_clear_base
+    value: 1.0
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_lipid_apoe.md (k_LRP1_clearance baseline)"
+    notes: "Reference LRP1-associated clearance for E3-like context."
+
+  - name: sf_APOE2_lipidation
+    value: 1.30
+    units: dimensionless
+    confidence: estimated
+    source: "strategy_lipid_apoe.md section 2.2"
+    notes: "ApoE2 enhances lipidation efficiency relative to ApoE3."
+
+  - name: sf_APOE3_lipidation
+    value: 1.00
+    units: dimensionless
+    confidence: estimated
+    source: "strategy_lipid_apoe.md section 2.2"
+    notes: "Reference ApoE3 lipidation scaling."
+
+  - name: sf_APOE4_lipidation
+    value: 0.50
+    units: dimensionless
+    confidence: estimated
+    source: "strategy_lipid_apoe.md section 2.2"
+    notes: "ApoE4 lipidation efficiency reduction (~50%)."
+
+  - name: sf_APOE2_receptor_affinity
+    value: 1.25
+    units: dimensionless
+    confidence: estimated
+    source: "strategy_lipid_apoe.md section 2.2"
+    notes: "ApoE2 favors receptor-linked clearance interactions."
+
+  - name: sf_APOE3_receptor_affinity
+    value: 1.00
+    units: dimensionless
+    confidence: estimated
+    source: "strategy_lipid_apoe.md section 2.2"
+    notes: "Reference receptor affinity scaling."
+
+  - name: sf_APOE4_receptor_affinity
+    value: 0.50
+    units: dimensionless
+    confidence: estimated
+    source: "strategy_lipid_apoe.md section 2.2"
+    notes: "ApoE4 reduced receptor-linked affinity/handling."
+
+  - name: sf_APOE2_AB_clearance
+    value: 1.25
+    units: dimensionless
+    confidence: estimated
+    source: "strategy_lipid_apoe.md section 2.2"
+    notes: "ApoE2 improves AB clearance capacity."
+
+  - name: sf_APOE3_AB_clearance
+    value: 1.00
+    units: dimensionless
+    confidence: estimated
+    source: "strategy_lipid_apoe.md section 2.2"
+    notes: "Reference AB clearance scaling."
+
+  - name: sf_APOE4_AB_clearance
+    value: 0.50
+    units: dimensionless
+    confidence: estimated
+    source: "strategy_lipid_apoe.md section 2.2"
+    notes: "ApoE4 reduces AB clearance by approximately 50%."
+
+  - name: eps_APOE_pool
+    value: 1.0e-18
+    units: mol
+    confidence: assumed
+    source: "numerical safeguard"
+    notes: "Prevents division by zero in isoform fraction rules."
+
+rules:
+  - name: APOE_isoform_pool
+    equation: "APOE_isoform_pool = APOE2_BrainISF + APOE3_BrainISF + APOE4_BrainISF"
+    notes: "Auxiliary total of explicit isoform pools."
+
+  - name: frac_APOE2
+    equation: "frac_APOE2 = APOE2_BrainISF / (APOE_isoform_pool + eps_APOE_pool)"
+    notes: "Current APOE2 proportion."
+
+  - name: frac_APOE3
+    equation: "frac_APOE3 = APOE3_BrainISF / (APOE_isoform_pool + eps_APOE_pool)"
+    notes: "Current APOE3 proportion."
+
+  - name: frac_APOE4
+    equation: "frac_APOE4 = APOE4_BrainISF / (APOE_isoform_pool + eps_APOE_pool)"
+    notes: "Current APOE4 proportion."
+
+  - name: mod_APOE_lipidation_eff
+    equation: "mod_APOE_lipidation_eff = sf_APOE2_lipidation * frac_APOE2 + sf_APOE3_lipidation * frac_APOE3 + sf_APOE4_lipidation * frac_APOE4"
+    notes: "Isoform-weighted lipidation efficiency modifier for APOE_total -> APOE_lipidated step."
+
+  - name: mod_APOE_receptor_affinity
+    equation: "mod_APOE_receptor_affinity = sf_APOE2_receptor_affinity * frac_APOE2 + sf_APOE3_receptor_affinity * frac_APOE3 + sf_APOE4_receptor_affinity * frac_APOE4"
+    notes: "Isoform-weighted receptor affinity modifier used in APOE-LDLR/LRP1 binding step."
+
+  - name: mod_APOE_AB_clearance
+    equation: "mod_APOE_AB_clearance = sf_APOE2_AB_clearance * frac_APOE2 + sf_APOE3_AB_clearance * frac_APOE3 + sf_APOE4_AB_clearance * frac_APOE4"
+    notes: "Cross-module AB clearance scaling output (E4-dominant state yields ~0.5 multiplier)."
+
+evidence:
+  - source: "plan/strategy_lipid_apoe.md"
+    supports: "ApoE isoform-dependent lipidation, receptor handling, and AB clearance differences"
+  - pmid: "21456963"
+    source: "Existing module evidence baseline in repository"
+    supports: "AD amyloid processing context"

@@ -1,0 +1,557 @@
+name: autophagy
+description: >
+  Tier 3 neuronal autophagy module for Alzheimer's disease ODE models.
+  Captures AMPK-mTOR-ULK1 initiation control, BECLIN1-mediated nucleation,
+  LC3 lipidation, p62 cargo recognition, autophagosome-lysosome fusion,
+  and autolysosomal proteostasis.
+mechanism: "Autophagy Dysfunction"
+notes: "Tier: 3. Compartment constrained to Neuron."
+
+compartments:
+  - name: Neuron
+    volume_parameter: V_Neuron
+    volume_value: 0.0005
+    volume_units: L
+    notes: "Neuronal intracellular compartment for autophagy signaling and vesicle flux."
+
+species:
+  - name: BECLIN1_Neuron
+    initial_amount: 6.0e-10
+    units: mol
+  - name: LC3I_Neuron
+    initial_amount: 1.2e-9
+    units: mol
+  - name: LC3II_Neuron
+    initial_amount: 3.0e-10
+    units: mol
+  - name: P62_Neuron
+    initial_amount: 8.0e-10
+    units: mol
+  - name: AUTOPHAGOSOME_Neuron
+    initial_amount: 1.0e-10
+    units: mol
+  - name: LYSOSOME_Neuron
+    initial_amount: 6.0e-10
+    units: mol
+  - name: AUTOLYSOSOME_Neuron
+    initial_amount: 5.0e-11
+    units: mol
+  - name: mTOR_Neuron
+    initial_amount: 7.0e-10
+    units: mol
+  - name: AMPK_Neuron
+    initial_amount: 4.0e-10
+    units: mol
+  - name: ULK1_Neuron
+    initial_amount: 2.0e-10
+    units: mol
+  - name: TFEB_Neuron
+    initial_amount: 2.5e-10
+    units: mol
+  - name: LAMP1_Neuron
+    initial_amount: 5.0e-10
+    units: mol
+
+reactions:
+  - name: AMPK_Activation_by_Stress
+    reactants: []
+    products:
+      - AMPK_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ampk_act_stress * (K_autophagy_switch^Hill_coefficient) / (K_autophagy_switch^Hill_coefficient + (mTOR_Neuron / V_Neuron)^Hill_coefficient)"
+    rate_parameters:
+      - k_ampk_act_stress
+      - K_autophagy_switch
+      - Hill_coefficient
+      - V_Neuron
+
+  - name: AMPK_Inactivation
+    reactants:
+      - AMPK_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_ampk_inact
+
+  - name: mTOR_Activation_Basal
+    reactants: []
+    products:
+      - mTOR_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_mtor_act_basal
+
+  - name: mTOR_Inhibition_by_AMPK
+    reactants:
+      - mTOR_Neuron
+      - AMPK_Neuron
+    products:
+      - AMPK_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_mtor_inhib_ampk * (mTOR_Neuron / V_Neuron) * ((AMPK_Neuron / V_Neuron)^Hill_coefficient) / (K_ampk_mtor^Hill_coefficient + (AMPK_Neuron / V_Neuron)^Hill_coefficient)"
+    rate_parameters:
+      - k_mtor_inhib_ampk
+      - K_ampk_mtor
+      - Hill_coefficient
+      - V_Neuron
+
+  - name: ULK1_Activation_by_AMPK_and_mTOR_Relief
+    reactants: []
+    products:
+      - ULK1_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_ulk1_act * ((AMPK_Neuron / V_Neuron)^Hill_coefficient) / (K_ampk_ulk1^Hill_coefficient + (AMPK_Neuron / V_Neuron)^Hill_coefficient) * (K_mtor_ulk1 / (K_mtor_ulk1 + (mTOR_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_ulk1_act
+      - K_ampk_ulk1
+      - K_mtor_ulk1
+      - Hill_coefficient
+      - V_Neuron
+
+  - name: ULK1_Inactivation
+    reactants:
+      - ULK1_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_ulk1_inact
+
+  - name: BECLIN1_Activation_by_ULK1
+    reactants: []
+    products:
+      - BECLIN1_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_beclin1_act * (ULK1_Neuron / V_Neuron) / (K_ulk1_beclin1 + (ULK1_Neuron / V_Neuron))"
+    rate_parameters:
+      - k_beclin1_act
+      - K_ulk1_beclin1
+      - V_Neuron
+
+  - name: BECLIN1_Turnover
+    reactants:
+      - BECLIN1_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_beclin1_turnover
+
+  - name: LC3I_Synthesis
+    reactants: []
+    products:
+      - LC3I_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_lc3i_syn
+
+  - name: LC3I_Turnover
+    reactants:
+      - LC3I_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_lc3i_turnover
+
+  - name: LC3_Lipidation_LC3I_to_LC3II
+    reactants:
+      - LC3I_Neuron
+    products:
+      - LC3II_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_lc3_lipidation * (LC3I_Neuron / V_Neuron) * ((BECLIN1_Neuron / V_Neuron) / (K_lc3_lipidation + (BECLIN1_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_lc3_lipidation
+      - K_lc3_lipidation
+      - V_Neuron
+
+  - name: LC3II_DeLipidation
+    reactants:
+      - LC3II_Neuron
+    products:
+      - LC3I_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_lc3ii_delipidation
+
+  - name: Autophagosome_Nucleation
+    reactants:
+      - LC3II_Neuron
+    products:
+      - AUTOPHAGOSOME_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_autophagosome_nucleation * (ULK1_Neuron / V_Neuron) * (BECLIN1_Neuron / V_Neuron) * (LC3II_Neuron / V_Neuron)"
+    rate_parameters:
+      - k_autophagosome_nucleation
+      - V_Neuron
+
+  - name: Cargo_Recognition_P62_to_Autophagosome
+    reactants:
+      - P62_Neuron
+      - AUTOPHAGOSOME_Neuron
+    products:
+      - AUTOPHAGOSOME_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_cargo_recognition
+
+  - name: TFEB_Activation_by_AMPK_and_mTOR_Relief
+    reactants: []
+    products:
+      - TFEB_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_tfeb_act * ((AMPK_Neuron / V_Neuron)^Hill_coefficient) / (K_ampk_tfeb^Hill_coefficient + (AMPK_Neuron / V_Neuron)^Hill_coefficient) * (K_mtor_tfeb / (K_mtor_tfeb + (mTOR_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_tfeb_act
+      - K_ampk_tfeb
+      - K_mtor_tfeb
+      - Hill_coefficient
+      - V_Neuron
+
+  - name: TFEB_Inactivation
+    reactants:
+      - TFEB_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_tfeb_inact
+
+  - name: LAMP1_Synthesis_by_TFEB
+    reactants: []
+    products:
+      - LAMP1_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_lamp1_syn_basal + k_lamp1_syn_tfeb * (TFEB_Neuron / TFEB_ref)"
+    rate_parameters:
+      - k_lamp1_syn_basal
+      - k_lamp1_syn_tfeb
+      - TFEB_ref
+
+  - name: LAMP1_Turnover
+    reactants:
+      - LAMP1_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_lamp1_turnover
+
+  - name: Lysosome_Biogenesis_by_TFEB_LAMP1
+    reactants: []
+    products:
+      - LYSOSOME_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_lysosome_biogenesis * (TFEB_Neuron / TFEB_ref) * ((LAMP1_Neuron / V_Neuron) / (K_lamp1_lysosome + (LAMP1_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_lysosome_biogenesis
+      - TFEB_ref
+      - K_lamp1_lysosome
+      - V_Neuron
+
+  - name: Lysosome_Turnover
+    reactants:
+      - LYSOSOME_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_lysosome_turnover
+
+  - name: Autophagosome_Lysosome_Fusion
+    reactants:
+      - AUTOPHAGOSOME_Neuron
+      - LYSOSOME_Neuron
+      - LAMP1_Neuron
+    products:
+      - AUTOLYSOSOME_Neuron
+      - LAMP1_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_fusion * (AUTOPHAGOSOME_Neuron / V_Neuron) * (LYSOSOME_Neuron / V_Neuron) * ((LAMP1_Neuron / V_Neuron) / (K_lamp1_fusion + (LAMP1_Neuron / V_Neuron)))"
+    rate_parameters:
+      - k_fusion
+      - K_lamp1_fusion
+      - V_Neuron
+
+  - name: Autolysosome_Resolution
+    reactants:
+      - AUTOLYSOSOME_Neuron
+    products:
+      - LYSOSOME_Neuron
+      - LC3I_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_autolysosome_resolution
+
+  - name: P62_Synthesis_by_TFEB
+    reactants: []
+    products:
+      - P62_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_p62_syn_basal + k_p62_syn_tfeb * (TFEB_Neuron / TFEB_ref)"
+    rate_parameters:
+      - k_p62_syn_basal
+      - k_p62_syn_tfeb
+      - TFEB_ref
+
+  - name: P62_Basal_Turnover
+    reactants:
+      - P62_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_p62_turnover
+
+  - name: P62_Autolysosomal_Degradation
+    reactants:
+      - P62_Neuron
+      - AUTOLYSOSOME_Neuron
+    products:
+      - AUTOLYSOSOME_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_p62_autolys_deg
+
+parameters:
+  - name: V_Neuron
+    value: 0.0005
+    units: L
+    confidence: assumed
+    source: "strategy_synaptic_neuronal.md neuronal compartment convention"
+
+  - name: Hill_coefficient
+    value: 4.0
+    units: dimensionless
+    confidence: estimated
+    source: "data/parameters/module/autophagy.json autophagy_proteostasis record"
+
+  - name: K_autophagy_switch
+    value: 87.02718086557644
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/autophagy.json concentration-scale geometric mean"
+
+  - name: k_ampk_act_stress
+    value: 0.35
+    units: mol/L/hr
+    confidence: estimated
+    source: "autophagy module initialization"
+
+  - name: k_ampk_inact
+    value: 0.2
+    units: 1/hr
+    confidence: estimated
+    source: "autophagy module initialization"
+
+  - name: k_mtor_act_basal
+    value: 1.6e-11
+    units: mol/hr
+    confidence: estimated
+    source: "autophagy module initialization"
+
+  - name: k_mtor_inhib_ampk
+    value: 0.55
+    units: 1/hr
+    confidence: estimated
+    source: "AMPK antagonism of mTOR effective rate"
+
+  - name: K_ampk_mtor
+    value: 87.02718086557644
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/autophagy.json concentration-scale geometric mean"
+
+  - name: k_ulk1_act
+    value: 0.6
+    units: mol/L/hr
+    confidence: estimated
+    source: "ULK1 initiation activation scale"
+
+  - name: K_ampk_ulk1
+    value: 87.02718086557644
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/autophagy.json concentration-scale geometric mean"
+
+  - name: K_mtor_ulk1
+    value: 87.02718086557644
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/autophagy.json concentration-scale geometric mean"
+
+  - name: k_ulk1_inact
+    value: 0.25
+    units: 1/hr
+    confidence: estimated
+    source: "ULK1 deactivation timescale"
+
+  - name: k_beclin1_act
+    value: 0.45
+    units: mol/L/hr
+    confidence: estimated
+    source: "BECLIN1 nucleation activation scale"
+
+  - name: K_ulk1_beclin1
+    value: 87.02718086557644
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/autophagy.json concentration-scale geometric mean"
+
+  - name: k_beclin1_turnover
+    value: 0.08
+    units: 1/hr
+    confidence: estimated
+    source: "BECLIN1 turnover assumption"
+
+  - name: k_lc3i_syn
+    value: 2.2e-11
+    units: mol/hr
+    confidence: estimated
+    source: "LC3 pool maintenance initialization"
+
+  - name: k_lc3i_turnover
+    value: 0.06
+    units: 1/hr
+    confidence: estimated
+    source: "LC3I turnover timescale"
+
+  - name: k_lc3_lipidation
+    value: 0.9
+    units: 1/hr
+    confidence: estimated
+    source: "LC3I to LC3II conversion scale"
+
+  - name: K_lc3_lipidation
+    value: 87.02718086557644
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/autophagy.json concentration-scale geometric mean"
+
+  - name: k_lc3ii_delipidation
+    value: 0.28
+    units: 1/hr
+    confidence: estimated
+    source: "LC3II recycling timescale"
+
+  - name: k_autophagosome_nucleation
+    value: 0.42
+    units: mol/L/hr
+    confidence: estimated
+    source: "ULK1-BECLIN1-dependent phagophore nucleation scale"
+
+  - name: k_cargo_recognition
+    value: 1.4e+8
+    units: 1/(mol*hr)
+    confidence: estimated
+    source: "effective mass-action p62 cargo recruitment"
+
+  - name: k_tfeb_act
+    value: 0.4
+    units: mol/L/hr
+    confidence: estimated
+    source: "AMPK/mTOR regulation of TFEB activity"
+
+  - name: K_ampk_tfeb
+    value: 87.02718086557644
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/autophagy.json concentration-scale geometric mean"
+
+  - name: K_mtor_tfeb
+    value: 87.02718086557644
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/autophagy.json concentration-scale geometric mean"
+
+  - name: k_tfeb_inact
+    value: 0.18
+    units: 1/hr
+    confidence: estimated
+    source: "TFEB deactivation timescale"
+
+  - name: k_lamp1_syn_basal
+    value: 9.0e-12
+    units: mol/L/hr
+    confidence: estimated
+    source: "LAMP1 basal expression scale"
+
+  - name: k_lamp1_syn_tfeb
+    value: 2.1e-11
+    units: mol/L/hr
+    confidence: estimated
+    source: "TFEB-driven LAMP1 expression scale"
+
+  - name: TFEB_ref
+    value: 1.0e-6
+    units: mol
+    confidence: assumed
+    source: "normalization reference"
+
+  - name: k_lamp1_turnover
+    value: 0.035
+    units: 1/hr
+    confidence: estimated
+    source: "LAMP1 turnover assumption"
+
+  - name: k_lysosome_biogenesis
+    value: 0.25
+    units: mol/L/hr
+    confidence: estimated
+    source: "TFEB/LAMP1-dependent lysosome generation scale"
+
+  - name: K_lamp1_lysosome
+    value: 87.02718086557644
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/autophagy.json concentration-scale geometric mean"
+
+  - name: k_lysosome_turnover
+    value: 0.00012654888458104032
+    units: 1/hr
+    confidence: estimated
+    source: "data/parameters/module/autophagy.json clearance timescale mapped as ln(2)/5477.2256 h"
+
+  - name: k_fusion
+    value: 0.52
+    units: 1/hr
+    confidence: estimated
+    source: "autophagosome-lysosome fusion scale"
+
+  - name: K_lamp1_fusion
+    value: 87.02718086557644
+    units: nM
+    confidence: estimated
+    source: "data/parameters/module/autophagy.json concentration-scale geometric mean"
+
+  - name: k_autolysosome_resolution
+    value: 0.22
+    units: 1/hr
+    confidence: estimated
+    source: "autolysosome maturation/resolution timescale"
+
+  - name: k_p62_syn_basal
+    value: 8.0e-12
+    units: mol/L/hr
+    confidence: estimated
+    source: "p62 basal expression scale"
+
+  - name: k_p62_syn_tfeb
+    value: 1.5e-11
+    units: mol/L/hr
+    confidence: estimated
+    source: "TFEB-responsive p62 expression scale"
+
+  - name: k_p62_turnover
+    value: 0.07
+    units: 1/hr
+    confidence: estimated
+    source: "p62 basal turnover assumption"
+
+  - name: k_p62_autolys_deg
+    value: 8.0e+7
+    units: 1/(mol*hr)
+    confidence: estimated
+    source: "autolysosome-dependent p62/cargo degradation scaling"
+
+evidence:
+  - source: "data/parameters/module/autophagy.json"
+    supports: "Hill coefficient prior, concentration-scale half-saturation prior, and long-timescale turnover prior"
+  - source: "plan/strategy_synaptic_neuronal.md"
+    supports: "Tier 3 neuronal scope and compartment volume convention"
+  - source: "../Elbert_Esguerra_model_v2026b/antimony_models/"
+    supports: "No direct autophagy block identified; module follows project naming and kinetic conventions"

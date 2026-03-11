@@ -1,0 +1,582 @@
+name: oxidative_stress
+description: >
+  Tier 2 oxidative stress module for Alzheimer's disease ODE models.
+  Captures mitochondrial and neuronal ROS dynamics, antioxidant buffering
+  (SOD1/SOD2, GPX, catalase, glutathione cycle), NRF2-KEAP1 stress-response
+  signaling, and oxidative damage biomarkers (4-HNE, MDA, 8-OHdG).
+mechanism: "Oxidative Stress"
+notes: "Tier: 2. Compartments constrained to Neuron and Mitochondria."
+
+compartments:
+  - name: Neuron
+    volume_parameter: V_Neuron
+    volume_value: 0.0005
+    volume_units: L
+    notes: "Neuronal cytosol for antioxidant response and damage accumulation."
+  - name: Mitochondria
+    volume_parameter: V_Mitochondria
+    volume_value: 0.0001
+    volume_units: L
+    notes: "Mitochondrial compartment as primary ROS source."
+
+species:
+  - name: ROS_Neuron
+    initial_amount: 5.0e-9
+    units: mol
+  - name: ROS_Mitochondria
+    initial_amount: 2.0e-9
+    units: mol
+  - name: SOD1_Neuron
+    initial_amount: 1.0e-8
+    units: mol
+  - name: SOD2_Mitochondria
+    initial_amount: 8.0e-9
+    units: mol
+  - name: GPX_Neuron
+    initial_amount: 1.0e-8
+    units: mol
+  - name: GSH_Neuron
+    initial_amount: 2.5e-7
+    units: mol
+  - name: GSSG_Neuron
+    initial_amount: 1.0e-8
+    units: mol
+  - name: CAT_Neuron
+    initial_amount: 1.0e-8
+    units: mol
+  - name: NRF2_Neuron
+    initial_amount: 2.0e-9
+    units: mol
+  - name: KEAP1_Neuron
+    initial_amount: 1.0e-8
+    units: mol
+  - name: HNE4_Neuron
+    initial_amount: 5.0e-10
+    units: mol
+    notes: "4-HNE lipid peroxidation adduct pool."
+  - name: OHdG8_Neuron
+    initial_amount: 5.0e-10
+    units: mol
+    notes: "8-OHdG oxidative DNA damage marker pool."
+  - name: MDA_Neuron
+    initial_amount: 5.0e-10
+    units: mol
+
+reactions:
+  - name: ROS_Mito_Basal_Production
+    reactants: []
+    products:
+      - ROS_Mitochondria
+    rate_type: MA
+    rate_parameters:
+      - k_ros_mito_prod
+
+  - name: ROS_Mito_Autocatalytic_Production
+    reactants:
+      - ROS_Mitochondria
+    products:
+      - ROS_Mitochondria
+      - ROS_Mitochondria
+    rate_type: custom_conc_per_time
+    rate_equation: "Vmax_ros_auto_mito * ((ROS_Mitochondria / V_Mitochondria)^Hill_coefficient) / ((Km_ros_auto_mito^Hill_coefficient) + (ROS_Mitochondria / V_Mitochondria)^Hill_coefficient)"
+    rate_parameters:
+      - Vmax_ros_auto_mito
+      - Km_ros_auto_mito
+      - Hill_coefficient
+      - V_Mitochondria
+
+  - name: ROS_Mito_Clearance_by_SOD2
+    reactants:
+      - ROS_Mitochondria
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "Vmax_sod2 * (SOD2_Mitochondria / SOD2_ref) * (ROS_Mitochondria / V_Mitochondria) / (Km_ros_sod2 + (ROS_Mitochondria / V_Mitochondria))"
+    rate_parameters:
+      - Vmax_sod2
+      - SOD2_ref
+      - Km_ros_sod2
+      - V_Mitochondria
+
+  - name: ROS_Leak_Mito_to_Neuron
+    reactants:
+      - ROS_Mitochondria
+    products:
+      - ROS_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_ros_leak_mito_neuron
+
+  - name: ROS_Neuron_Basal_Production
+    reactants: []
+    products:
+      - ROS_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_ros_neuron_prod
+
+  - name: ROS_Neuron_Clearance_by_SOD1
+    reactants:
+      - ROS_Neuron
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "Vmax_sod1 * (SOD1_Neuron / SOD1_ref) * (ROS_Neuron / V_Neuron) / (Km_ros_sod1 + (ROS_Neuron / V_Neuron))"
+    rate_parameters:
+      - Vmax_sod1
+      - SOD1_ref
+      - Km_ros_sod1
+      - V_Neuron
+
+  - name: ROS_Neuron_Clearance_by_CAT
+    reactants:
+      - ROS_Neuron
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "Vmax_cat * (CAT_Neuron / CAT_ref) * (ROS_Neuron / V_Neuron) / (Km_ros_cat + (ROS_Neuron / V_Neuron))"
+    rate_parameters:
+      - Vmax_cat
+      - CAT_ref
+      - Km_ros_cat
+      - V_Neuron
+
+  - name: ROS_Neuron_Clearance_by_GPX
+    reactants:
+      - ROS_Neuron
+      - GSH_Neuron
+    products:
+      - GSSG_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_gpx * (GPX_Neuron / GPX_ref) * (ROS_Neuron / V_Neuron) * (GSH_Neuron / V_Neuron) / (Km_ros_gpx + (ROS_Neuron / V_Neuron))"
+    rate_parameters:
+      - k_gpx
+      - GPX_ref
+      - Km_ros_gpx
+      - V_Neuron
+
+  - name: GSSG_Reduction_to_GSH
+    reactants:
+      - GSSG_Neuron
+    products:
+      - GSH_Neuron
+      - GSH_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "Vmax_gssg_reductase * (GSSG_Neuron / V_Neuron) / (Km_gssg_reductase + (GSSG_Neuron / V_Neuron))"
+    rate_parameters:
+      - Vmax_gssg_reductase
+      - Km_gssg_reductase
+      - V_Neuron
+
+  - name: GSH_DeNovo_Synthesis_by_NRF2
+    reactants: []
+    products:
+      - GSH_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_gsh_syn_basal + k_gsh_syn_nrf2 * (NRF2_Neuron / NRF2_ref)"
+    rate_parameters:
+      - k_gsh_syn_basal
+      - k_gsh_syn_nrf2
+      - NRF2_ref
+
+  - name: GSH_Basal_Consumption
+    reactants:
+      - GSH_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_gsh_decay
+
+  - name: NRF2_Activation_by_ROS
+    reactants:
+      - KEAP1_Neuron
+    products:
+      - NRF2_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_nrf2_act * (KEAP1_Neuron / V_Neuron) * (ROS_Neuron / V_Neuron) / (Km_ros_nrf2 + (ROS_Neuron / V_Neuron))"
+    rate_parameters:
+      - k_nrf2_act
+      - Km_ros_nrf2
+      - V_Neuron
+
+  - name: NRF2_KEAP1_Dependent_Degradation
+    reactants:
+      - NRF2_Neuron
+      - KEAP1_Neuron
+    products:
+      - KEAP1_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_nrf2_deg_keap1
+
+  - name: KEAP1_Synthesis
+    reactants: []
+    products:
+      - KEAP1_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_keap1_syn
+
+  - name: KEAP1_Oxidative_Loss
+    reactants:
+      - KEAP1_Neuron
+    products: []
+    rate_type: custom_conc_per_time
+    rate_equation: "k_keap1_ox * (KEAP1_Neuron / V_Neuron) * (ROS_Neuron / V_Neuron)"
+    rate_parameters:
+      - k_keap1_ox
+      - V_Neuron
+
+  - name: SOD1_Synthesis_by_NRF2
+    reactants: []
+    products:
+      - SOD1_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_sod1_syn_basal + k_sod1_syn_nrf2 * (NRF2_Neuron / NRF2_ref)"
+    rate_parameters:
+      - k_sod1_syn_basal
+      - k_sod1_syn_nrf2
+      - NRF2_ref
+
+  - name: SOD1_Turnover
+    reactants:
+      - SOD1_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_sod1_deg
+
+  - name: GPX_Synthesis_by_NRF2
+    reactants: []
+    products:
+      - GPX_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_gpx_syn_basal + k_gpx_syn_nrf2 * (NRF2_Neuron / NRF2_ref)"
+    rate_parameters:
+      - k_gpx_syn_basal
+      - k_gpx_syn_nrf2
+      - NRF2_ref
+
+  - name: GPX_Turnover
+    reactants:
+      - GPX_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_gpx_deg
+
+  - name: CAT_Synthesis_by_NRF2
+    reactants: []
+    products:
+      - CAT_Neuron
+    rate_type: custom_conc_per_time
+    rate_equation: "k_cat_syn_basal + k_cat_syn_nrf2 * (NRF2_Neuron / NRF2_ref)"
+    rate_parameters:
+      - k_cat_syn_basal
+      - k_cat_syn_nrf2
+      - NRF2_ref
+
+  - name: CAT_Turnover
+    reactants:
+      - CAT_Neuron
+    products: []
+    rate_type: MA
+    rate_parameters:
+      - k_cat_deg
+
+  - name: Lipid_Peroxidation_to_4HNE
+    reactants:
+      - ROS_Neuron
+    products:
+      - ROS_Neuron
+      - HNE4_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_lipid_perox_hne
+
+  - name: Lipid_Peroxidation_to_MDA
+    reactants:
+      - ROS_Neuron
+    products:
+      - ROS_Neuron
+      - MDA_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_lipid_perox_mda
+
+  - name: DNA_Oxidation_to_8OHdG
+    reactants:
+      - ROS_Neuron
+    products:
+      - ROS_Neuron
+      - OHdG8_Neuron
+    rate_type: MA
+    rate_parameters:
+      - k_dna_oxid_8ohdg
+
+parameters:
+  - name: V_Neuron
+    value: 0.0005
+    units: L
+    confidence: assumed
+    source: "compartment definition"
+
+  - name: V_Mitochondria
+    value: 0.0001
+    units: L
+    confidence: assumed
+    source: "compartment definition"
+
+  - name: k_ros_mito_prod
+    value: 2.0e-7
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: Vmax_ros_auto_mito
+    value: 8.0e-6
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: Km_ros_auto_mito
+    value: 2.0e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: Hill_coefficient
+    value: 2.0
+    units: dimensionless
+    confidence: estimated
+    source: "data/parameters/module/oxidative_stress.json"
+
+  - name: Vmax_sod2
+    value: 1.5e-5
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: SOD2_ref
+    value: 8.0e-9
+    units: mol
+    confidence: assumed
+    source: "module initialization"
+
+  - name: Km_ros_sod2
+    value: 1.0e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_ros_leak_mito_neuron
+    value: 0.12
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_ros_neuron_prod
+    value: 8.0e-8
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: Vmax_sod1
+    value: 1.0e-5
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: SOD1_ref
+    value: 1.0e-8
+    units: mol
+    confidence: assumed
+    source: "module initialization"
+
+  - name: Km_ros_sod1
+    value: 1.2e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: Vmax_cat
+    value: 8.0e-6
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: CAT_ref
+    value: 1.0e-8
+    units: mol
+    confidence: assumed
+    source: "module initialization"
+
+  - name: Km_ros_cat
+    value: 8.0e-6
+    units: mol/L
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_gpx
+    value: 1.2
+    units: L/mol/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: GPX_ref
+    value: 1.0e-8
+    units: mol
+    confidence: assumed
+    source: "module initialization"
+
+  - name: Km_ros_gpx
+    value: 1.0e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: Vmax_gssg_reductase
+    value: 6.0e-6
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: Km_gssg_reductase
+    value: 2.0e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_gsh_syn_basal
+    value: 1.0e-6
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_gsh_syn_nrf2
+    value: 3.5e-6
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: NRF2_ref
+    value: 2.0e-9
+    units: mol
+    confidence: assumed
+    source: "module initialization"
+
+  - name: k_gsh_decay
+    value: 0.03
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_nrf2_act
+    value: 0.4
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: Km_ros_nrf2
+    value: 2.0e-5
+    units: mol/L
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_nrf2_deg_keap1
+    value: 0.25
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_keap1_syn
+    value: 6.0e-7
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_keap1_ox
+    value: 0.8
+    units: L/mol/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_sod1_syn_basal
+    value: 4.0e-7
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_sod1_syn_nrf2
+    value: 9.0e-7
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_sod1_deg
+    value: 0.05
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_gpx_syn_basal
+    value: 3.0e-7
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_gpx_syn_nrf2
+    value: 8.0e-7
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_gpx_deg
+    value: 0.05
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_cat_syn_basal
+    value: 3.0e-7
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_cat_syn_nrf2
+    value: 7.0e-7
+    units: mol/L/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_cat_deg
+    value: 0.04
+    units: 1/hr
+    confidence: estimated
+    source: "strategy_synaptic_neuronal oxidative stress section"
+
+  - name: k_lipid_perox_hne
+    value: 0.02
+    units: 1/hr
+    confidence: estimated
+    source: "Butterfield and Halliwell 2019"
+
+  - name: k_lipid_perox_mda
+    value: 0.015
+    units: 1/hr
+    confidence: estimated
+    source: "Butterfield and Halliwell 2019"
+
+  - name: k_dna_oxid_8ohdg
+    value: 0.01
+    units: 1/hr
+    confidence: estimated
+    source: "Markesbery 1997"
+
+evidence:
+  - pmid: "31395402"
+    source: "Butterfield and Halliwell 2019"
+    supports: "Oxidative stress mechanisms and lipid peroxidation burden in AD"
+  - pmid: "10521432"
+    source: "Huang et al. 1999"
+    supports: "ABeta-metal chemistry as ROS-amplifying mechanism"
+  - pmid: "9392577"
+    source: "Markesbery 1997"
+    supports: "Oxidative damage hypothesis and DNA/lipid oxidation in AD"
